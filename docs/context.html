@@ -278,5 +278,27 @@ and exits 1; help exits 0. The bin guard uses <code>pathToFileURL(argv[1])</code
 <code>vitest.config.ts</code> now maps <code>@lopr/*</code> to their <code>src</code> entry points
 (tests run before build).</li>
 </ul>
+
+<h2 id="tui">TUI</h2>
+<p>Three-pane ink interface in <code>packages/tui</code> (files / diff / threads), keyboard-driven,
+launched with <code>runTui({ reviewId })</code>. It loads the review through
+<code>ReviewService.diffForReview</code> (three-dot diff of the reviewed branch, new in core) and
+renders an ink <code>App</code> whose I/O lives behind an injected <code>actions</code> object.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Navigation logic is a pure reducer</strong> (<code>src/state.ts</code>), unit-tested with
+no ink: cursor moves and clamps, file switching resets to the diff pane, comments are only
+anchorable on lines with a new-side number (added/context), a <code>refresh</code> action re-renders
+after each service call. The ink <code>App</code> is a thin view over it.</li>
+<li><strong>ink v5 removed <code>TextInput</code></strong>: comment bodies are typed through
+<code>useInput</code> into the reducer's <code>commentBody</code> buffer (enter submits, esc cancels),
+keeping input handling in the same state machine the tests cover.</li>
+<li><strong>Actions are one key</strong>: <code>j/k</code> move, <code>h/l</code> files,
+<code>tab</code> cycles panes, <code>c</code> comment, <code>a</code> approve,
+<code>r</code> request-changes, <code>m</code> merge (with <code>[y/n]</code> confirm passing
+<code>consent: true</code>), <code>e</code> export to <code>REVIEW.md</code>, <code>q</code> quit.</li>
+<li><strong>JSX forced a <code>.tsx</code> entry</strong> (<code>src/index.tsx</code>, tsup emits
+<code>dist/index.js</code>) and <code>jsx: react-jsx</code> in <code>tsconfig.base.json</code>.</li>
+</ul>
 </body>
 </html>
