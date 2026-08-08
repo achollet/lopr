@@ -61,12 +61,99 @@ Outil pour creer un pull request 100% localement, sans repo distant, afin de rev
 
 - Repo workflow: trunk-based (branches courtes par boucle agent, revue via lopr, merge dans main toujours releasable); conventional commits imposes en CI (commitlint); release notes auto-generees depuis les titres de PR a chaque tag v*.\n- Contrat REVIEW.md: en-tete (branche/base, statut), section conflits auto-resolus (main gagnant), commentaires par path:ligne (extrait, retour, suggestion optionnelle), section non localises (detaches).</pre>
 <h2>Analysis</h2>
-<p>To fill in.</p>
+<p>An AI agent produces code quickly — too quickly to eyeball. Reviewing it the GitHub way
+(three-dot diff, line comments, threads, approve/request-changes, merge) requires a remote
+repository that may not exist, and that nobody else needs. The unit of review is the whole
+agent loop: implement → review → feedback → re-implement, possibly several times, until the
+result is satisfactory. The hard problem is that comments written on iteration N must still
+mean something on iteration N+1, when the code moved — hence line anchors that persist and
+re-anchor across iterations.</p>
+<ul>
+<li><strong>Single human reviewer, solo.</strong> No multi-user, no remote PR mode in V1. The
+store stays portable by plain files, with an <code>author</code> field reserved for the future.</li>
+<li><strong>Local first.</strong> Everything runs against the working repo's git history; merge is
+a local <code>--no-ff</code> into the base branch, warned first and never forced.</li>
+<li><strong>Two surfaces, one core.</strong> The VS Code webview is the main review surface; the
+TUI is the minimum viable one (diff / merge / export). Features may diverge per surface, the
+domain logic does not.</li>
+<li><strong>Agent feedback loop is a first-class output.</strong> <code>REVIEW.md</code> is a
+stable, agent-agnostic contract ingested via the <code>apply-review</code> skill.</li>
+</ul>
 <h2>Architecture</h2>
-<p>To fill in.</p>
+<p>TypeScript monorepo, pnpm workspaces. Four packages, one shared version:</p>
+<table>
+<tr><th>package</th><th>responsibility</th></tr>
+<tr><td><code>core</code></td><td>Domain only: diff model, review/comment model, status state
+machine, anchoring &amp; re-anchoring engine, storage (JSON per review), merge orchestrator,
+<code>REVIEW.md</code> exporter. No I/O except through injected adapters.</td></tr>
+<tr><td><code>cli</code></td><td>The <code>lopr</code> binary. Thin wrapper over core: commands
+<code>new · comment · approve · request-changes · resolve · status · merge · export · skill</code>.
+Reads <code>.lopr/config.json</code> for the base branch, CLI flag overrides, git default fallback.</td></tr>
+<tr><td><code>tui</code></td><td>Ink TUI, three panes (files / diff / threads), keyboard-driven.
+Minimal surface: diff, comment, status, merge, export.</td></tr>
+<tr><td><code>vscode</code></td><td>VS Code extension, webview review surface. Extension host talks
+to the webview over the standard message protocol; both load <code>core</code>.</td></tr>
+</table>
+<p>Key components in <code>core</code>:</p>
+<ul>
+<li><strong>GitGateway</strong> (interface) — shells out to the system git. Implementations are
+tested against throwaway repos in vitest. Diff via <code>git diff --merge-base base head</code>
+(three-dot, the semantics GitHub PRs show: stable when the base moves, Git 2.30+). Rename
+detection on by default; generated files filtered by configurable <code>lopr.ignore</code>;
+binaries marked and never anchored.</li>
+<li><strong>Anchoring engine</strong> (the core of the software) — a comment carries its current
+<code>(file, line)</code> plus its origin <code>(oldSha, oldLine)</code>, with a mandatory
+instant snapshot of surrounding lines for the fallback. Re-anchor order: (a) exact hunk mapping
+over <code>oldHead..newHead</code>, (b) whitespace-tolerant context search when the line sits in a
+rewritten zone, (c) detached state — never silent, never blocking alone.</li>
+<li><strong>Status state machine</strong> — PR: <code>open → request-changes → approved → merged</code>,
+plus <code>done</code> (terminable without merge, reachable from anywhere) and <code>closed</code>.
+Review status is per review, not per comment. Transitions validated by core.</li>
+<li><strong>Comment model</strong> — <code>id, file, line, oldSha/oldLine, context, body, status
+(active/resolved/detached), author, parentId, resolvedAt</code>. Inline code suggestions
+(<code>replace X by Y</code>) are a mandatory V1 capability.</li>
+<li><strong>Storage</strong> — one JSON file per review. Humans never read it; surfaces render it.</li>
+<li><strong>Merge orchestrator</strong> — <code>--no-ff</code> into the base branch, user consent
+first; conflicts auto-resolved main-wins, each auto-resolution journalised in the review, then the
+loop re-runs to re-apply the need against the new base.</li>
+<li><strong>REVIEW.md exporter</strong> — header (branch/base, status), auto-resolved conflicts
+section, comments by <code>path:line</code> (snippet, feedback, optional suggestion), and a
+<code>non localized</code> section for detached comments.</li>
+</ul>
 <h2>Chosen stack</h2>
-<p>To fill in, justified against the knowledge base.</p>
+<ul>
+<li><strong>TypeScript + pnpm workspaces.</strong> One language across CLI (Node) and the VS Code
+extension (runs in the extension host, also Node) — a second toolchain would buy nothing here.
+pnpm gives strict, fast workspaces and a single version across the four packages.</li>
+<li><strong>tsup</strong> for bundling (ESM, fast, zero-config for CLI and extension out).</li>
+<li><strong>vitest</strong> for the unit tests that carry the value: the anchoring engine, diff
+parsing, status transitions, merge conflict resolution — all pure enough to test without a UI.</li>
+<li><strong>Ink</strong> for the TUI (React renderer, <code>@inkjs/ui</code> widgets,
+<code>ink-testing-library</code> for in-memory rendering) — the ecosystem standard, proven for
+three-pane review UIs; see knowledge base <em>ink-tui</em>.</li>
+<li><strong>git via child_process</strong>, not libgit2 — matching "100% local, same semantics as
+GitHub" (<code>--merge-base</code> three-dot, rename detection, <code>--no-ff</code>) with the
+user's own git.</li>
+<li><strong>VS Code webview</strong> for the main surface; extension shipped as <code>.vsix</code>
+attached to releases until v1.0, marketplace/Open VSX studied at v1.0.</li>
+</ul>
 <h2>Risks</h2>
-<p>To fill in.</p>
+<ul>
+<li><strong>Re-anchoring fidelity</strong> — a rewritten zone can mis-anchor a comment. Mitigation:
+hunk-exact mapping first, whitespace-tolerant context search second, explicit <code>detached</code>
+state third; a detached comment is surfaced, never silently dropped, and re-anchored or discarded
+at merge.</li>
+<li><strong>Git semantics drift</strong> — rename detection, ignored generated files, truncated
+large files can make the local diff disagree with what a reviewer expects. Mitigation:
+<code>lopr.ignore</code>, binary marking, truncation with an explicit notice in the surface.</li>
+<li><strong>Auto-resolving conflicts main-wins can lose intent.</strong> Mitigation: journalise
+every auto-resolution in the review, and re-run the loop to re-apply the need against the new base.</li>
+<li><strong>Webview development cost</strong> — the extension is the largest surface. Mitigation:
+the TUI is the minimal fallback, and both share the same core; dogfooding <code>lopr</code> on its
+own trunk-based branches.</li>
+<li><strong>Single-version releases</strong> — four packages released in lockstep needs CI
+discipline (commitlint, release notes from PR titles, tags). Mitigation: defined in the repo
+workflow from day one.</li>
+</ul>
 </body>
 </html>
