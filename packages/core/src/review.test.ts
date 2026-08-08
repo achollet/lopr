@@ -3,6 +3,7 @@ import {
   addComment,
   createReview,
   getThread,
+  logConflict,
   parseReview,
   resolveComment,
   ReviewError,
@@ -19,7 +20,7 @@ describe('createReview', () => {
   it('creates an open review with an initial status log entry', () => {
     const review = baseReview();
     expect(review).toMatchObject({
-      version: 1,
+      version: 2,
       id: 'review-1',
       status: 'open',
       statusLog: [{ from: null, to: 'open', at: NOW }],
@@ -251,7 +252,7 @@ describe('parseReview', () => {
   });
 
   it('rejects an unsupported schema version', () => {
-    expect(() => parseReview(JSON.stringify({ version: 2 }))).toThrow('unsupported review schema version');
+    expect(() => parseReview(JSON.stringify({ version: 3 }))).toThrow('unsupported review schema version');
   });
 
   it('rejects a malformed review (missing status)', () => {
@@ -262,5 +263,23 @@ describe('parseReview', () => {
   it('rejects a review with malformed comments', () => {
     const review = { ...baseReview(), comments: [{ id: 42 }] };
     expect(() => parseReview(JSON.stringify(review))).toThrow('malformed review file');
+  });
+
+  it('rejects a review with malformed conflicts', () => {
+    const review = { ...baseReview(), conflicts: [{ path: 42 }] };
+    expect(() => parseReview(JSON.stringify(review))).toThrow('malformed review file');
+  });
+});
+
+describe('logConflict', () => {
+  it('appends a main-wins auto-resolution to the review', () => {
+    const review = baseReview();
+    const updated = logConflict(review, 'src/a.ts', { now: () => NOW });
+    expect(updated.conflicts).toEqual([{ path: 'src/a.ts', at: NOW }]);
+    expect(review.conflicts).toEqual([]);
+  });
+
+  it('rejects an empty path', () => {
+    expect(() => logConflict(baseReview(), '  ')).toThrow('conflict path is required');
   });
 });
