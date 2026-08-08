@@ -1,5 +1,6 @@
 import { buildContextSnapshot, reanchorComment } from './anchoring.js';
 import { getDiffBetween, newFileProvider, resolveBranches } from './diff.js';
+import { exportReviewMarkdown } from './export.js';
 import type { GitGateway } from './gateway.js';
 import {
   addComment,
@@ -186,5 +187,10 @@ export class ReviewService {
 
   async summary(reviewId: string): Promise<ReviewSummary> {
     return summaryOf(await this.#load(reviewId));
+  }
+
+  /** Render the review as the stable REVIEW.md contract, for the CLI/TUI to write. */
+  async exportReview(reviewId: string): Promise<string> {
+    return exportReviewMarkdown(await this.#load(reviewId));
   }
 }
