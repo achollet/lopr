@@ -1,0 +1,26 @@
+{
+  "name": "lopr",
+  "version": "0.1.0",
+  "description": "Local Pull Request — the lopr CLI",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "bin": {
+    "lopr": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@lopr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2"
+  }
+}

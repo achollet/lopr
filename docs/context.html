@@ -10,5 +10,36 @@
 <p><em>Promoted from the mindpalace: <code>idea-260807xq1w</code></em></p>
 <h2>Per-feature context</h2>
 <p>One section per feature: files touched, decisions taken, traps hit.</p>
+<h2 id="scaffold">Scaffold</h2>
+<p>pnpm workspace, four packages (<code>@lopr/core</code>, <code>lopr</code> cli,
+<code>@lopr/tui</code>, <code>@lopr/vscode</code>), one shared version 0.1.0. tsup (ESM for
+core/cli/tui, CJS for the extension), vitest at the root
+(<code>packages/**/*.test.ts</code>), commitlint + husky <code>commit-msg</code> hook,
+GitHub Actions CI (typecheck / test / build), eslint flat config via typescript-eslint.</p>
+<p>Files: <code>pnpm-workspace.yaml</code>, <code>tsconfig.base.json</code>,
+<code>vitest.config.ts</code>, <code>eslint.config.mjs</code>,
+<code>commitlint.config.mjs</code>, <code>.husky/commit-msg</code>,
+<code>.github/workflows/ci.yml</code>, <code>packages/*/{package.json,tsup.config.ts}</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li>Workspace packages resolved to <strong>source</strong> in tsconfig
+(<code>paths</code>) so typecheck works before any build; tsup bundles in
+topological order (core first).</li>
+<li>TypeScript <strong>5.x</strong>, not 7: the native TS7 compiler breaks
+<code>rollup-plugin-dts</code> (tsup <code>dts: true</code>).</li>
+<li>pnpm 11: build scripts whitelisted via <code>allowBuilds.esbuild</code> in
+<code>pnpm-workspace.yaml</code> (the old <code>pnpm.onlyBuiltDependencies</code> in
+package.json is ignored by pnpm 11; <code>onlyBuiltDependencies</code> in the yaml
+sets a non-boolean placeholder that does not run the script).</li>
+<li>TS 7 removed <code>baseUrl</code>; paths are relative to the tsconfig. Not
+relevant on 5.x but kept clean anyway.</li>
+<li><code>"types": ["node"]</code> forced in tsconfig.base — without it
+<code>process</code>/<code>console</code> are not found in cli/vscode.</li>
+<li>Core exposes <code>VERSION</code> + <code>PACKAGE_NAME</code>; cli prints help; tui
+and extension are activation stubs. Smoke test covers the version export.</li>
+<li>No <code>rootDir</code>/<code>outDir</code> in package tsconfigs: they clash with
+cross-package source paths; emit is owned by tsup.</li>
+</ul>
+<p>Environment: Node 24 LTS installed via fnm, pnpm 11.20 via corepack.</p>
 </body>
 </html>

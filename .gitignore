@@ -18,6 +18,9 @@ coverage/
 *.log
 npm-debug.log*
 
+# Husky
+.husky/_
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

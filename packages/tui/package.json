@@ -1,0 +1,20 @@
+{
+  "name": "@lopr/tui",
+  "version": "0.1.0",
+  "description": "Local Pull Request — ink TUI surface (minimal: diff / merge / export)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@lopr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2"
+  }
+}
