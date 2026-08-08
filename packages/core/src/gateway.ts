@@ -40,6 +40,8 @@ export interface GitGateway {
   diffBodyBetween(a: string, b: string, cwd?: string): Promise<string>;
   /** `git show <sha>:<path>` — file content at a commit, null when missing. */
   showFile(sha: string, path: string, cwd?: string): Promise<string | null>;
+  /** `git rev-parse <ref>` — full commit sha of a branch/tag/sha. */
+  revParse(ref: string, cwd?: string): Promise<string>;
 }
 
 export class GitCli implements GitGateway {
@@ -125,5 +127,9 @@ export class GitCli implements GitGateway {
       if ((err as GitError).stderr?.includes('does not exist')) return null;
       throw err;
     }
+  }
+
+  async revParse(ref: string, cwd = process.cwd()): Promise<string> {
+    return (await this.run(['rev-parse', ref], cwd)).trim();
   }
 }
