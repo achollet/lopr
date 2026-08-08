@@ -15,6 +15,18 @@ export class GitError extends Error {
   }
 }
 
+/** Outcome of `git merge --no-commit --no-ff`. */
+export interface MergeResult {
+  /** True when the merge applied cleanly (staged, nothing left to resolve). */
+  merged: boolean;
+  /** True when head was already contained in base — no commit is needed. */
+  upToDate: boolean;
+  /** Paths with unmerged (conflicted) entries when `merged` is false. */
+  conflicts: string[];
+  /** git stderr when the merge failed for a non-conflict reason. */
+  failure?: string;
+}
+
 /** Low-level git operations. Everything is async and runs against the system git. */
 export interface GitGateway {
   /** Absolute path of the repository root (searched from `cwd`). */
@@ -42,6 +54,20 @@ export interface GitGateway {
   showFile(sha: string, path: string, cwd?: string): Promise<string | null>;
   /** `git rev-parse <ref>` — full commit sha of a branch/tag/sha. */
   revParse(ref: string, cwd?: string): Promise<string>;
+  /** `git checkout <branch>`. */
+  checkout(branch: string, cwd?: string): Promise<void>;
+  /** `git merge --no-commit --no-ff <branch>`; conflicts leave the merge in progress. */
+  mergeNoCommit(branch: string, cwd?: string): Promise<MergeResult>;
+  /** Paths currently in an unmerged (conflicted) state. */
+  unmergedPaths(cwd?: string): Promise<string[]>;
+  /** Resolve conflicts main-wins: keep the checked-out base's version. */
+  resolveOurs(paths: string[], cwd?: string): Promise<void>;
+  /** `git merge --abort`. */
+  abortMerge(cwd?: string): Promise<void>;
+  /** `git commit --no-verify -m <message>`. */
+  commitAll(message: string, cwd?: string): Promise<void>;
+  /** `git branch -D <branch>`. */
+  deleteBranch(branch: string, cwd?: string): Promise<void>;
 }
 
 export class GitCli implements GitGateway {
@@ -131,5 +157,62 @@ export class GitCli implements GitGateway {
 
   async revParse(ref: string, cwd = process.cwd()): Promise<string> {
     return (await this.run(['rev-parse', ref], cwd)).trim();
+  }
+
+  async checkout(branch: string, cwd = process.cwd()): Promise<void> {
+    await this.run(['checkout', branch], cwd);
+  }
+
+  async mergeNoCommit(branch: string, cwd = process.cwd()): Promise<MergeResult> {
+    let stdout = '';
+    let failure: unknown = null;
+    try {
+      ({ stdout } = await execFileAsync(this.binary, ['merge', '--no-commit', '--no-ff', branch], {
+        cwd,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        env: { ...process.env, LC_ALL: 'C' },
+      }));
+    } catch (err) {
+      failure = err;
+    }
+    if (failure === null) {
+      return { merged: true, upToDate: stdout.includes('Already up to date'), conflicts: [] };
+    }
+    const conflicts = await this.unmergedPaths(cwd);
+    if (conflicts.length === 0) {
+      const e = failure as { stderr?: string };
+      return { merged: false, upToDate: false, conflicts: [], failure: e.stderr?.trim() };
+    }
+    return { merged: false, upToDate: false, conflicts };
+  }
+
+  async unmergedPaths(cwd = process.cwd()): Promise<string[]> {
+    const out = await this.run(['diff', '--name-only', '--diff-filter=U', '-z'], cwd);
+    return out.split('\0').filter((p) => p.length > 0);
+  }
+
+  async resolveOurs(paths: string[], cwd = process.cwd()): Promise<void> {
+    for (const p of paths) {
+      try {
+        await this.run(['checkout', '--ours', '--', p], cwd);
+      } catch {
+        // ours deleted the path (main-wins): finalise the deletion instead.
+        await this.run(['rm', '-f', '--', p], cwd);
+      }
+      await this.run(['add', '--', p], cwd);
+    }
+  }
+
+  async abortMerge(cwd = process.cwd()): Promise<void> {
+    await this.run(['merge', '--abort'], cwd);
+  }
+
+  async commitAll(message: string, cwd = process.cwd()): Promise<void> {
+    await this.run(['commit', '--no-verify', '-m', message], cwd);
+  }
+
+  async deleteBranch(branch: string, cwd = process.cwd()): Promise<void> {
+    await this.run(['branch', '-D', branch], cwd);
   }
 }
