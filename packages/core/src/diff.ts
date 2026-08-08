@@ -83,6 +83,34 @@ function splitBodies(stdout: string): string[] {
     .map((part) => part.replace(/\n$/, ''));
 }
 
+function assembleFiles(nameStatus: string, numstat: string, body: string, ignore: string[]): FileDiff[] {
+  const entries = parseNameStatus(nameStatus);
+  const stats = parseNumstat(numstat);
+  const bodies = splitBodies(body);
+  if (bodies.length !== entries.length) {
+    throw new Error(`diff body/name-status mismatch: ${bodies.length} bodies vs ${entries.length} files`);
+  }
+
+  const files: FileDiff[] = [];
+  entries.forEach((entry, index) => {
+    const path = entry.path ?? entry.newPath!;
+    if (matchesIgnore(path, ignore)) return;
+    const stat = stats.get(path);
+    const fileDiff: FileDiff = {
+      path,
+      status: mapStatus(entry.code),
+      binary: stat?.binary ?? false,
+      additions: stat?.additions ?? 0,
+      deletions: stat?.deletions ?? 0,
+      body: bodies[index] ?? '',
+    };
+    if (entry.oldPath !== undefined) fileDiff.oldPath = entry.oldPath;
+    files.push(fileDiff);
+  });
+
+  return files;
+}
+
 /**
  * The GitHub-style three-dot diff: `merge-base(base, head)..head`. Same
  * semantic as a GitHub PR — stable when the base branch moves.
@@ -109,29 +137,39 @@ export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions 
     gateway.diffBody(base, head, cwd),
   ]);
 
-  const entries = parseNameStatus(nameStatus);
-  const stats = parseNumstat(numstat);
-  const bodies = splitBodies(body);
-  if (bodies.length !== entries.length) {
-    throw new Error(`diff body/name-status mismatch: ${bodies.length} bodies vs ${entries.length} files`);
-  }
+  return { base, head, mergeBase, files: assembleFiles(nameStatus, numstat, body, ignore) };
+}
 
-  const files: FileDiff[] = [];
-  entries.forEach((entry, index) => {
-    const path = entry.path ?? entry.newPath!;
-    if (matchesIgnore(path, ignore)) return;
-    const stat = stats.get(path);
-    const fileDiff: FileDiff = {
-      path,
-      status: mapStatus(entry.code),
-      binary: stat?.binary ?? false,
-      additions: stat?.additions ?? 0,
-      deletions: stat?.deletions ?? 0,
-      body: bodies[index] ?? '',
-    };
-    if (entry.oldPath !== undefined) fileDiff.oldPath = entry.oldPath;
-    files.push(fileDiff);
-  });
+export interface DiffBetweenOptions {
+  /** Old side of the tree-to-tree diff (a commit sha). */
+  old: string;
+  /** New side of the tree-to-tree diff (a commit sha). */
+  new: string;
+  ignore?: string[];
+  cwd?: string;
+}
 
-  return { base, head, mergeBase, files };
+/**
+ * Two-dot, tree-to-tree diff between two commits — the shape the anchoring
+ * engine re-anchors against. Unlike the three-dot form this compares the two
+ * trees directly, so it stays correct when the agent rebases/amends history.
+ */
+export async function getDiffBetween(gateway: GitGateway, options: DiffBetweenOptions): Promise<FileDiff[]> {
+  const cwd = options.cwd ?? process.cwd();
+  const ignore = options.ignore ?? [];
+  const [nameStatus, numstat, body] = await Promise.all([
+    gateway.diffNameStatusBetween(options.old, options.new, cwd),
+    gateway.diffNumstatBetween(options.old, options.new, cwd),
+    gateway.diffBodyBetween(options.old, options.new, cwd),
+  ]);
+  return assembleFiles(nameStatus, numstat, body, ignore);
+}
+
+/** Adapter feeding the anchoring engine new-side file contents from git. */
+export function newFileProvider(gateway: GitGateway, sha: string, cwd?: string) {
+  return async (path: string): Promise<string[] | null> => {
+    const content = await gateway.showFile(sha, path, cwd);
+    if (content === null) return null;
+    return content.replace(/\n$/, '').split('\n');
+  };
 }
