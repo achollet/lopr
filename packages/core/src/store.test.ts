@@ -75,7 +75,7 @@ describe('JsonFileReviewStore', () => {
   });
 
   it('throws on an unsupported schema version', async () => {
-    await writeFile(path.join(dir, 'v2.json'), JSON.stringify({ version: 2 }), 'utf8');
+    await writeFile(path.join(dir, 'v2.json'), JSON.stringify({ version: 3 }), 'utf8');
     await expect(store.load('v2')).rejects.toThrow('unsupported review schema version');
   });
 
