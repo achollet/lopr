@@ -8,6 +8,7 @@ export { mapOldLineToNew, reanchorComment, buildContextSnapshot } from './anchor
 export type { AnchorComment, AnchorResult, AnchorStatus, ContextSnapshot } from './anchoring.js';
 export { ReviewService } from './service.js';
 export type { CommentCommand, NewReviewCommand, ReviewServiceOptions } from './service.js';
+export { REVIEW_MD_FORMAT, exportReviewMarkdown } from './export.js';
 export { parseDiffBody, truncateHunks } from './diff-model.js';
 export type { DiffLine, DiffLineKind, Hunk, ParsedDiff, Truncation } from './diff-model.js';
 export { GitCli, GitError } from './gateway.js';
