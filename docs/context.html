@@ -70,5 +70,58 @@ be anchored later).</li>
 <code>git symbolic-ref --short -q HEAD</code> falls back to <code>HEAD</code> for detached state;
 <code>maxBuffer</code> raised to 64&nbsp;MiB for large agent-loop diffs.</li>
 </ul>
+<h2 id="diff-model">Diff model</h2>
+<p>Parsing of the per-file unified diff body into hunks, in
+<code>packages/core/src/diff-model.ts</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><code>parseDiffBody</code> is pure and always returns <strong>every</strong> hunk.
+Truncation is a display concern (<code>truncateHunks(hunks, max)</code>), never part of
+the model the anchoring engine will read — a truncated map would silently lose
+comment re-anchors.</li>
+<li>Hunk line numbers are tracked incrementally from <code>oldStart</code>/<code>newStart</code>:
+context increments both, removed only old, added only new. The
+<code>\ No newline at end of file</code> marker is ignored (it is not a diff line).
+Omitted counts in <code>@@ -5 +5 @@</code> mean 1. Section headings after the second
+<code>@@</code> are captured.</li>
+<li>Header lines (<code>diff --git</code>, <code>index</code>, <code>--- a/</code>,
+<code>+++ b/</code>, <code>similarity index</code>, <code>rename from/to</code>) are skipped
+because a hunk header match requires <code>^@@ -</code> and content lines always carry a
+<code> </code>/<code>-</code>/<code>+</code> prefix.</li>
+<li>Empty and binary bodies yield zero hunks.</li>
+</ul>
+<h2 id="review-model">Review model &amp; storage</h2>
+<p>Review/comment domain model, status state machine and per-review JSON storage, in
+<code>packages/core/src/{review,store}.ts</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Immutable model.</strong> <code>createReview</code>, <code>addComment</code>,
+<code>transition</code>, <code>resolveComment</code> return a new <code>Review</code>;
+<code>updatedAt</code> is bumped by every op. <code>now</code> is injectable so tests are
+deterministic.</li>
+<li><strong>Comment anchors are on thread roots only.</strong> A root comment carries
+<code>file</code>/<code>line</code>/<code>origin</code> (sha + old line)/<code>context</code>
+(mandatory snapshot for the re-anchor fallback) and an optional <code>suggestion</code>
+(<code>oldText</code>→<code>newText</code>, V1 mandatory capability; empty <code>newText</code> = deletion).
+Replies link via <code>parentId</code> and keep anchors null — they belong to the thread,
+so re-anchoring only ever touches roots.</li>
+<li><strong>State machine</strong> (<code>REVIEW_TRANSITIONS</code>): open → request-changes →
+approved → merged → done; <code>done</code> reachable from any active state (terminable without
+merge), <code>closed</code> abandons (reopenable → open), <code>merged</code> only from
+<code>approved</code>. No self-transitions. Every transition is journalised in
+<code>statusLog</code>. Review status is per review, never per comment.</li>
+<li><strong>Resolve</strong> flips a comment to <code>resolved</code> with
+<code>resolvedAt</code>; allowed from <code>active</code> and <code>detached</code> (resolving a
+detached comment is the discard decision at merge time).</li>
+<li><strong>Storage</strong>: one JSON file per review (<code>&lt;id&gt;.json</code>) in a
+directory (<code>.lopr/reviews</code>). Atomic write (temp file + rename) so a crash never
+corrupts a review; schema <code>version: 1</code> guarded by <code>parseReview</code>, which
+throws on malformed data — the store never returns null for a corrupted file.</li>
+<li><strong>IDs are path-safe</strong>: <code>/^[A-Za-z0-9_-]+$/</code> enforced by the store
+on save/load, so an id can never escape the reviews directory.</li>
+<li>Traps hit: TS casts <code>Record&lt;string, unknown&gt; → Review</code> fail without an
+<code>as unknown</code> hop; eslint flags <code>_</code>-prefixed unused vars even in
+destructuring-rest, so tests strip fields explicitly instead.</li>
+</ul>
 </body>
 </html>
