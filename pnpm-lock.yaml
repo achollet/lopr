@@ -47,6 +47,10 @@ importers:
         version: 26.1.2
 
   packages/core:
+    dependencies:
+      minimatch:
+        specifier: ^10.2.6
+        version: 10.2.6
     devDependencies:
       typescript:
         specifier: ^5.9.0
