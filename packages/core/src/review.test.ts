@@ -106,6 +106,17 @@ describe('addComment', () => {
     expect(() => addComment(baseReview(), { ...root, context: [] })).toThrow('context snapshot');
   });
 
+  it('defaults contextAnchor to the middle of the snapshot', () => {
+    const review = addComment(baseReview(), { ...root, context: ['a', 'b', 'c', 'd', 'e'] });
+    expect(review.comments[0]!.contextAnchor).toBe(2);
+  });
+
+  it('rejects a contextAnchor outside the snapshot', () => {
+    expect(() => addComment(baseReview(), { ...root, context: ['a', 'b', 'c'], contextAnchor: 3 })).toThrow('contextAnchor');
+    expect(() => addComment(baseReview(), { ...root, context: ['a', 'b', 'c'], contextAnchor: -1 })).toThrow('contextAnchor');
+    expect(() => addComment(baseReview(), { ...root, context: ['a', 'b', 'c'], contextAnchor: 1.5 })).toThrow('contextAnchor');
+  });
+
   it('rejects a suggestion with empty oldText', () => {
     expect(() => addComment(baseReview(), { ...root, suggestion: { oldText: ' ', newText: 'x' } })).toThrow('oldText');
   });

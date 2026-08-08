@@ -55,6 +55,8 @@ export interface ReviewComment {
   origin: CommentOrigin | null;
   /** Snapshot of surrounding lines, mandatory for the re-anchor fallback. */
   context: string[];
+  /** Index of the anchored line within `context`. */
+  contextAnchor: number;
   body: string;
   status: CommentStatus;
   suggestion: CodeSuggestion | null;
@@ -134,6 +136,8 @@ export interface NewComment {
   endLine?: number | null;
   origin?: CommentOrigin;
   context?: string[];
+  /** Index of the anchored line within `context`. Defaults to the middle. */
+  contextAnchor?: number;
   body: string;
   suggestion?: CodeSuggestion | null;
   author?: string;
@@ -154,6 +158,7 @@ export function addComment(review: Review, input: NewComment): Review {
     endLine: null,
     origin: null,
     context: [],
+    contextAnchor: 0,
     body,
     status: 'active',
     suggestion: null,
@@ -178,11 +183,17 @@ export function addComment(review: Review, input: NewComment): Review {
     if (input.suggestion !== undefined && input.suggestion !== null && input.suggestion.oldText.trim() === '') {
       throw new ReviewError('suggestion requires oldText');
     }
+    const context = [...input.context];
+    const contextAnchor = input.contextAnchor ?? Math.floor(context.length / 2);
+    if (!Number.isInteger(contextAnchor) || contextAnchor < 0 || contextAnchor >= context.length) {
+      throw new ReviewError('contextAnchor must be within the context snapshot');
+    }
     comment.file = input.file.trim();
     comment.line = input.line;
     comment.endLine = input.endLine ?? null;
     comment.origin = input.origin;
-    comment.context = [...input.context];
+    comment.context = context;
+    comment.contextAnchor = contextAnchor;
     comment.suggestion = input.suggestion ?? null;
   }
 
