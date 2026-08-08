@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getThreeDotDiff } from './diff.js';
+import { getDiffBetween, getThreeDotDiff, newFileProvider } from './diff.js';
 import { GitCli } from './gateway.js';
 import { makeRepo, type TestRepo } from './test-utils.js';
 
@@ -121,5 +121,36 @@ describe('getThreeDotDiff', () => {
     repo.commit('feature');
 
     await expect(getThreeDotDiff(new GitCli(), { cwd: repo.dir })).rejects.toThrow(/No base branch/);
+  });
+});
+
+describe('getDiffBetween', () => {
+  it('compares two trees directly, across a rewritten history', async () => {
+    const repo = newRepo();
+    repo.write('a.txt', 'v1\n');
+    repo.commit('v1');
+    repo.write('a.txt', 'v2\n');
+    repo.commit('v2');
+
+    const sha1 = repo.git('rev-parse', 'HEAD~1');
+    const sha2 = repo.git('rev-parse', 'HEAD');
+    const files = await getDiffBetween(new GitCli(), { old: sha1, new: sha2, cwd: repo.dir });
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatchObject({ path: 'a.txt', status: 'modified' });
+    expect(files[0]!.body).toContain('@@ -1 +1 @@');
+  });
+});
+
+describe('newFileProvider', () => {
+  it('reads file content at a commit and returns null for missing paths', async () => {
+    const repo = newRepo();
+    repo.write('a.txt', 'line1\nline2\n');
+    repo.commit('v1');
+    const sha = repo.git('rev-parse', 'HEAD');
+    const provider = newFileProvider(new GitCli(), sha, repo.dir);
+
+    expect(await provider('a.txt')).toEqual(['line1', 'line2']);
+    expect(await provider('missing.txt')).toBeNull();
   });
 });

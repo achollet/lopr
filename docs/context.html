@@ -123,5 +123,34 @@ on save/load, so an id can never escape the reviews directory.</li>
 <code>as unknown</code> hop; eslint flags <code>_</code>-prefixed unused vars even in
 destructuring-rest, so tests strip fields explicitly instead.</li>
 </ul>
+<h2 id="anchoring">Anchoring engine</h2>
+<p>Re-anchoring a comment written on an old head onto a new head, in
+<code>packages/core/src/anchoring.ts</code>. This is the core of the software: comments must
+still mean something on the next agent iteration when the code moved.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Two-dot, tree-to-tree diff</strong> (<code>getDiffBetween</code>) — not the three-dot
+form. An agent routinely rebases/amends, so the mapping must compare the old head's tree to the
+new head's tree directly; <code>--merge-base</code> would silently compare an older base.</li>
+<li><strong>Re-anchor order</strong>: (a) exact hunk mapping
+(<code>mapOldLineToNew</code>) — context lines map positionally, a removed line returns null;
+(b) whitespace-tolerant context search (<code>findContextWindow</code>) when the line sits in a
+rewritten zone; (c) <code>detached</code> — never silent, never blocking alone. A deleted or
+binary file always detaches.</li>
+<li><strong>The snapshot is self-sufficient.</strong> The comment stores <code>context</code>
+(neighbouring lines <em>including</em> the anchored line) plus <code>contextAnchor</code> — the
+index of the anchored line in the snapshot. Without it the fallback could not locate the line
+from stored data alone, which is the whole point of the mandatory snapshot.</li>
+<li><strong>Whitespace tolerance</strong> collapses every whitespace run to a single space before
+comparing, so re-indented code still re-anchors; the anchored line itself is allowed to have
+changed (that is why the fallback triggers at all). The best window wins on match count, ties
+broken by proximity to the naively-shifted position.</li>
+<li><strong>Engine stays pure</strong>: new-side file contents arrive through an injected
+<code>getNewLines</code> adapter; <code>newFileProvider</code> (<code>git show sha:path</code>)
+is the production adapter, tests use stubs.</li>
+<li><strong>Traps hit</strong>: git error messages are locale-dependent — subprocesses now run
+with <code>LC_ALL=C</code> so <code>showFile</code> can recognise “path does not exist” and
+return null instead of throwing.</li>
+</ul>
 </body>
 </html>
