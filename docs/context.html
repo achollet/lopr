@@ -41,5 +41,34 @@ and extension are activation stubs. Smoke test covers the version export.</li>
 cross-package source paths; emit is owned by tsup.</li>
 </ul>
 <p>Environment: Node 24 LTS installed via fnm, pnpm 11.20 via corepack.</p>
+<h2 id="git-gateway">Git gateway</h2>
+<p>The three-dot diff in <code>core</code>, with the same semantic as a GitHub PR. The unit of
+review here is the commit range: <code>merge-base(base, head)..head</code>.</p>
+<p>Files: <code>packages/core/src/{gateway,diff,config,ignore,types}.ts</code> +
+<code>diff.test.ts</code> (tests run against throwaway real git repos via
+<code>test-utils.ts</code>).</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>git via child_process</strong>, no libgit2. <code>GitGateway</code> interface +
+<code>GitCli</code> impl; <code>--merge-base</code> form of the three-dot diff (Git 2.30+),
+the exact semantics GitHub PRs show.</li>
+<li>Three git calls per diff, run in parallel: <code>--name-status -z</code> (statuses +
+paths), <code>--numstat -z</code> (additions/deletions, binary detection via
+<code>-\t-</code>), full unified diff (per-file bodies). Bodies are correlated to entries
+<strong>positionally</strong>: all three come from the same <code>git diff</code> machinery
+(path-sorted), and a length mismatch throws rather than silently misattributing.</li>
+<li>Renames/copies (<code>-M</code>, git default threshold) carry <code>oldPath</code>;
+numstat reports the new path, so stats map by new path.</li>
+<li><strong><code>lopr.ignore</code></strong> = glob patterns in <code>.lopr/config.json</code>
+(<code>{"ignore": ["**/dist/**"]}</code>), matched with <code>minimatch</code>
+(<code>dot: true</code>). The <code>base</code> field lives in the same file; resolution order:
+CLI/option → config → git default branch (<code>main</code>/<code>master</code>) → clear error.</li>
+<li>Binary files: <code>binary: true</code>, zero add/del counts, body kept (they will never
+be anchored later).</li>
+<li>Traps hit: vitest root <code>include</code> is cwd-relative — switched to
+<code>**/*.test.ts</code> so a per-package <code>vitest run</code> finds its own tests;
+<code>git symbolic-ref --short -q HEAD</code> falls back to <code>HEAD</code> for detached state;
+<code>maxBuffer</code> raised to 64&nbsp;MiB for large agent-loop diffs.</li>
+</ul>
 </body>
 </html>
