@@ -32,6 +32,14 @@ export interface GitGateway {
   diffNumstat(base: string, head: string, cwd?: string): Promise<string>;
   /** `git diff --merge-base <base> <head> -M --no-color` (full unified diff). */
   diffBody(base: string, head: string, cwd?: string): Promise<string>;
+  /** `git diff <a> <b> -M --name-status -z` (two-dot, tree-to-tree). */
+  diffNameStatusBetween(a: string, b: string, cwd?: string): Promise<string>;
+  /** `git diff <a> <b> -M --numstat -z`. */
+  diffNumstatBetween(a: string, b: string, cwd?: string): Promise<string>;
+  /** `git diff <a> <b> -M --no-color` (full unified diff). */
+  diffBodyBetween(a: string, b: string, cwd?: string): Promise<string>;
+  /** `git show <sha>:<path>` — file content at a commit, null when missing. */
+  showFile(sha: string, path: string, cwd?: string): Promise<string | null>;
 }
 
 export class GitCli implements GitGateway {
@@ -43,6 +51,7 @@ export class GitCli implements GitGateway {
         cwd,
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
+        env: { ...process.env, LC_ALL: 'C' },
       });
       return stdout;
     } catch (err) {
@@ -95,5 +104,26 @@ export class GitCli implements GitGateway {
 
   async diffBody(base: string, head: string, cwd = process.cwd()): Promise<string> {
     return this.run(['diff', '--merge-base', base, head, '-M', '--no-color'], cwd);
+  }
+
+  async diffNameStatusBetween(a: string, b: string, cwd = process.cwd()): Promise<string> {
+    return this.run(['diff', a, b, '-M', '--name-status', '-z'], cwd);
+  }
+
+  async diffNumstatBetween(a: string, b: string, cwd = process.cwd()): Promise<string> {
+    return this.run(['diff', a, b, '-M', '--numstat', '-z'], cwd);
+  }
+
+  async diffBodyBetween(a: string, b: string, cwd = process.cwd()): Promise<string> {
+    return this.run(['diff', a, b, '-M', '--no-color'], cwd);
+  }
+
+  async showFile(sha: string, path: string, cwd = process.cwd()): Promise<string | null> {
+    try {
+      return await this.run(['show', `${sha}:${path}`], cwd);
+    } catch (err) {
+      if ((err as GitError).stderr?.includes('does not exist')) return null;
+      throw err;
+    }
   }
 }

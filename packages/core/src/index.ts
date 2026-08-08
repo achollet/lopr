@@ -2,8 +2,10 @@ export const VERSION = '0.1.0';
 
 export const PACKAGE_NAME = '@lopr/core';
 
-export { getThreeDotDiff } from './diff.js';
-export type { DiffOptions } from './diff.js';
+export { getThreeDotDiff, getDiffBetween, newFileProvider } from './diff.js';
+export type { DiffBetweenOptions, DiffOptions } from './diff.js';
+export { mapOldLineToNew, reanchorComment } from './anchoring.js';
+export type { AnchorComment, AnchorResult, AnchorStatus } from './anchoring.js';
 export { parseDiffBody, truncateHunks } from './diff-model.js';
 export type { DiffLine, DiffLineKind, Hunk, ParsedDiff, Truncation } from './diff-model.js';
 export { GitCli, GitError } from './gateway.js';
