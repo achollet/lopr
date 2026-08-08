@@ -26,6 +26,9 @@ npm-debug.log*
 !.vscode/extensions.json
 !.vscode/settings.json
 
+# lopr local state
+.lopr/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -381,6 +381,22 @@ the GitHub remote exists (the user fills it at first push); vsce only warns.</li
 it only for token storage, and publication can rely on <code>VSCE_PAT</code>.</li>
 </ul>
 <h2 id="dogfood">Docs &amp; dogfooding</h2>
-<p>Trunk-based workflow and lopr reviewing its own branches. <em>In progress.</em></p>
+<p>The final epic: document the trunk-based workflow and prove lopr works by
+using it on its own codebase.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Trunk-based workflow documented in README</strong>: the agent loop is
+implement → review → feedback → re-implement → merge. Short-lived branches per
+agent iteration; <code>main</code> stays releasable. Conventional commits enforced
+in CI; release notes auto-generated from PR titles at each <code>v*</code> tag.</li>
+<li><strong>Dogfooding demonstrated</strong>: lopr was used to review its own
+<code>epic/dogfooding</code> branch against <code>main</code>. A review was created,
+line comments posted (including an inline suggestion), the review approved,
+threads resolved, and <code>REVIEW.md</code> exported. The <code>apply-review</code>
+skill was installed at <code>.lopr/skills/</code>. The full loop works end-to-end.</li>
+<li><strong>CLI is the dogfooding surface</strong>: the TUI and VS Code extension
+are the primary review surfaces for humans, but the CLI is sufficient for
+scripted/automated dogfooding and CI integration.</li>
+</ul>
 </body>
 </html>
