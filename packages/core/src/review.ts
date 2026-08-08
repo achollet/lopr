@@ -8,7 +8,7 @@ export type ReviewStatus =
   | 'done'
   | 'closed';
 
-export const REVIEW_SCHEMA_VERSION = 1;
+export const REVIEW_SCHEMA_VERSION = 2;
 
 export const REVIEW_TRANSITIONS: Record<ReviewStatus, readonly ReviewStatus[]> = {
   open: ['request-changes', 'approved', 'closed', 'done'],
@@ -71,6 +71,12 @@ export interface StatusTransition {
   at: string;
 }
 
+/** A conflict auto-resolved main-wins during merge, journalised in the review. */
+export interface AutoResolvedConflict {
+  path: string;
+  at: string;
+}
+
 export interface Review {
   version: typeof REVIEW_SCHEMA_VERSION;
   id: string;
@@ -79,6 +85,7 @@ export interface Review {
   author: string;
   status: ReviewStatus;
   statusLog: StatusTransition[];
+  conflicts: AutoResolvedConflict[];
   comments: ReviewComment[];
   createdAt: string;
   updatedAt: string;
@@ -121,6 +128,7 @@ export function createReview(input: NewReview): Review {
     author: input.author ?? 'human',
     status,
     statusLog: [{ from: null, to: status, at }],
+    conflicts: [],
     comments: [],
     createdAt: at,
     updatedAt: at,
@@ -214,6 +222,13 @@ export function transition(review: Review, to: ReviewStatus, opts?: { now?: () =
   };
 }
 
+/** Journalise a main-wins auto-resolution during merge. */
+export function logConflict(review: Review, path: string, opts?: { now?: () => string }): Review {
+  if (path.trim() === '') throw new ReviewError('conflict path is required');
+  const at = (opts?.now ?? defaultNow)();
+  return { ...review, conflicts: [...review.conflicts, { path: path.trim(), at }], updatedAt: at };
+}
+
 export function resolveComment(review: Review, id: string, opts?: { now?: () => string }): Review {
   const comment = review.comments.find((c) => c.id === id);
   if (!comment) throw new ReviewError(`unknown comment: ${id}`);
@@ -264,6 +279,16 @@ export function parseReview(raw: string): Review {
     for (const c of value.comments) {
       if (!isRecord(c) || typeof c.id !== 'string' || typeof c.body !== 'string' || !isCommentStatus(c.status)) {
         missing.push('comments[]');
+        break;
+      }
+    }
+  }
+  if (!Array.isArray(value.conflicts)) {
+    missing.push('conflicts');
+  } else {
+    for (const c of value.conflicts) {
+      if (!isRecord(c) || typeof c.path !== 'string' || c.path === '' || typeof c.at !== 'string' || c.at === '') {
+        missing.push('conflicts[]');
         break;
       }
     }
