@@ -177,4 +177,30 @@ describe('main', () => {
     expect(await main(['nope'], { io })).toBe(1);
     expect(err.join('\n')).toContain('unknown command');
   });
+
+  it('installs the apply-review skill and records the path in the config', async () => {
+    const r = repo();
+    const service = makeService(r.dir);
+    const { io } = capture();
+
+    expect(await main(['skill', 'install'], { io, service, cwd: r.dir })).toBe(0);
+    const file = path.join(r.dir, '.lopr', 'skills', 'apply-review.md');
+    expect(existsSync(file)).toBe(true);
+    expect(readFileSync(file, 'utf8')).toContain('# apply-review');
+    const config = JSON.parse(readFileSync(path.join(r.dir, '.lopr', 'config.json'), 'utf8'));
+    expect(config.skillPath).toBe(path.join(r.dir, '.lopr', 'skills'));
+
+    const denied = capture();
+    expect(
+      await main(['skill', 'install', '--path', '.agents'], { io: { ...denied.io, ask: async () => 'n' }, service, cwd: r.dir }),
+    ).toBe(0);
+    expect(denied.out.join('\n')).toContain('cancelled');
+    expect(existsSync(path.join(r.dir, '.agents', 'apply-review.md'))).toBe(false);
+
+    const reinstalled = capture();
+    expect(
+      await main(['skill', 'install', '--path', '.agents'], { io: { ...reinstalled.io, ask: async () => 'y' }, service, cwd: r.dir }),
+    ).toBe(0);
+    expect(existsSync(path.join(r.dir, '.agents', 'apply-review.md'))).toBe(true);
+  });
 });
