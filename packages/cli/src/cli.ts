@@ -139,6 +139,18 @@ async function cmdComment(service: ReviewService, args: ParsedArgs, io: CliIO): 
     return 1;
   }
   const replyTo = flag(args, 'reply-to');
+  const file = flag(args, 'file');
+  const lineStr = flag(args, 'line');
+  if (replyTo === undefined) {
+    if (file === undefined) {
+      io.err('lopr: comment requires --file <path>');
+      return 1;
+    }
+    if (lineStr === undefined) {
+      io.err('lopr: comment requires --line <number>');
+      return 1;
+    }
+  }
   const oldText = flag(args, 'suggest-old');
   const newText = flag(args, 'suggest-new');
   const suggestion =
@@ -148,8 +160,8 @@ async function cmdComment(service: ReviewService, args: ParsedArgs, io: CliIO): 
   const updated = await service.comment({
     reviewId,
     parentId: replyTo,
-    file: flag(args, 'file'),
-    line: flag(args, 'line') !== undefined ? Number(flag(args, 'line')) : undefined,
+    file,
+    line: lineStr !== undefined ? Number(lineStr) : undefined,
     body,
     suggestion,
   });

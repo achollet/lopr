@@ -23,10 +23,10 @@ export interface ReviewServiceOptions {
 
 export interface CommentCommand {
   reviewId: string;
-  /** Omit to post a reply. */
+  /** Omit to post a root comment; set to post a reply. */
   parentId?: string;
-  file: string;
-  line: number;
+  file?: string;
+  line?: number;
   body: string;
   suggestion?: CodeSuggestion;
 }
@@ -95,6 +95,22 @@ export class ReviewService {
   async comment(input: CommentCommand): Promise<Review> {
     const review = await this.#load(input.reviewId);
     const head = await this.#headSha(review.headBranch);
+
+    if (input.parentId !== undefined) {
+      const updated = addComment(review, {
+        parentId: input.parentId,
+        body: input.body,
+        suggestion: input.suggestion,
+        author: this.#author,
+        now: this.#now,
+      });
+      await this.#store.save(updated);
+      return updated;
+    }
+
+    if (input.file === undefined || input.line === undefined) {
+      throw new ReviewError('root comment requires --file and --line');
+    }
     const lines = await newFileProvider(this.#gateway, head, this.#cwd)(input.file);
     if (lines === null) throw new ReviewError(`file not found at ${head}: ${input.file}`);
     const line = input.line;
@@ -103,7 +119,6 @@ export class ReviewService {
     }
     const snapshot = buildContextSnapshot(lines, line);
     const updated = addComment(review, {
-      parentId: input.parentId,
       file: input.file,
       line,
       origin: { sha: head, line },
