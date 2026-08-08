@@ -152,5 +152,43 @@ is the production adapter, tests use stubs.</li>
 with <code>LC_ALL=C</code> so <code>showFile</code> can recognise “path does not exist” and
 return null instead of throwing.</li>
 </ul>
+
+<h2 id="review-commands">Review commands service</h2>
+<p>Orchestration layer, in <code>packages/core/src/service.ts</code>: a <code>ReviewService</code>
+tying the model, the store and the git gateway together behind one injected interface
+(<code>{gateway, store, author?, cwd?, now?}</code>). This is what the CLI/TUI will call; the
+domain stays pure and unaware of it.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Commands, not a repository</strong>: <code>newReview</code>, <code>comment</code>,
+<code>resolve</code>, transitions (<code>approve</code>/<code>requestChanges</code>/
+<code>close</code>/<code>done</code>/generic <code>transition</code>), <code>status</code>,
+<code>list</code>, <code>summary</code>, <code>reanchor</code>. Every write goes through the
+domain helpers, reloads from the store, saves back — the store is the single source of truth,
+the service holds no cache.</li>
+<li><strong>Comment creation captures its origin</strong>: the head sha and the anchored line are
+frozen at creation time into <code>origin</code>, and the context snapshot is built live from
+<code>git show head:path</code> via <code>newFileProvider</code>. The snapshot is mandatory —
+re-anchoring later relies on it alone. Line validity (1..N, file exists) is enforced at creation,
+not at re-anchor time.</li>
+<li><strong>Re-anchor is a service-level, one-shot operation</strong> over every root comment:
+it diffs <code>origin.sha → head</code> per comment, applies the anchoring engine, and persists
+only when something moved. Replies are never touched; a comment already sitting at the head
+(<code>origin.sha === head</code>) skips the diff entirely (observable: zero gateway calls).
+A successful re-anchor clears <code>detached</code>, a failed one sets it. <code>origin</code> is
+immutable — it is the point the comment was born, re-anchoring only moves the volatile
+<code>file</code>/<code>line</code>/<code>status</code>.</li>
+<li><strong>Branches resolved per command</strong>: <code>newReview</code> uses
+<code>resolveBranches</code> (current branch + default branch) unless explicit
+<code>baseBranch</code>/<code>headBranch</code> are passed; the head sha is re-parsed on every
+re-anchor so the latest agent iteration is picked up.</li>
+<li><strong>Deterministic by construction</strong>: <code>now()</code> is injectable, so every
+timestamp in the model is a pure function of it — the service tests rely on this.</li>
+<li><strong>Traps hit</strong>: TS widens literal statuses across object spreads in the re-anchor
+<code>map</code>, producing <code>string</code> instead of the union — fixed by typing the callback
+as <code>Promise&lt;ReviewComment&gt;</code>. Test fixtures that fake <code>git diff</code> output
+must start with <code>diff --git …</code> or the body counter in <code>assembleFiles</code>
+rejects them.</li>
+</ul>
 </body>
 </html>
