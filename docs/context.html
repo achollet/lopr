@@ -220,5 +220,34 @@ of one object and the merge epic only appends records.</li>
 binding is flagged by eslint — iterate <code>.values()</code> instead. Backticks inside inline paths
 are escaped so a hostile path cannot break the fence.</li>
 </ul>
+
+<h2 id="merge">Merge</h2>
+<p>Orchestrated merge of the reviewed branch into its base, in
+<code>ReviewService.mergeReview</code> with new gateway primitives in
+<code>packages/core/src/gateway.ts</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Consent is a hard gate</strong>: <code>mergeReview(id, { consent: true })</code> throws
+without it — the CLI/TUI ask the human first. Merging requires an <code>approved</code> review; the
+state machine still enforces <code>approved → merged</code> via <code>transition</code>.</li>
+<li><strong><code>--no-commit --no-ff</code>, then the service commits</strong>. The gateway returns a
+<code>MergeResult</code> (clean / up-to-date / conflicts) instead of throwing on conflict, so the
+orchestrator decides. Non-conflict failures (e.g. unrelated histories) come back as
+<code>failure</code> with an empty conflict list; the service aborts best-effort and rethrows as a
+<code>ReviewError</code> — the repo is never left mid-merge.</li>
+<li><strong>Conflicts auto-resolve main-wins</strong>: <code>resolveOurs</code> does
+<code>git checkout --ours -- path</code> + <code>git add</code> per conflicted path; when ours has
+deleted the path (delete/modify), the checkout fails and the deletion wins via
+<code>git rm -f</code>. Each auto-resolution is journalised with <code>logConflict</code> — the
+REVIEW.md export already renders them.</li>
+<li><strong>Already up to date is not an error</strong>: when the head is already contained in the
+base, the merge is skipped but the review still moves to <code>merged</code>.</li>
+<li><strong>Cleanup is opt-in</strong>: <code>cleanup: true</code> deletes the head branch and removes
+the review file after a successful merge (the local single-contributor mode); the review is kept by
+default for the audit trail.</li>
+<li><strong>Branches are checked out by the orchestrator</strong>: the service switches to the base
+branch before merging, so a dirty worktree fails loudly at the checkout rather than corrupting a
+merge.</li>
+</ul>
 </body>
 </html>
