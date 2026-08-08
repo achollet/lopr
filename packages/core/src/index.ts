@@ -43,3 +43,5 @@ export type {
 } from './review.js';
 export { JsonFileReviewStore, summaryOf } from './store.js';
 export type { ReviewStore, ReviewSummary } from './store.js';
+export { makeRepo } from './test-utils.js';
+export type { TestRepo } from './test-utils.js';
