@@ -5,6 +5,7 @@ import type { GitGateway } from './gateway.js';
 import {
   addComment,
   createReview,
+  logConflict,
   resolveComment,
   transition as applyTransition,
   ReviewError,
@@ -34,6 +35,14 @@ export interface NewReviewCommand {
   id?: string;
   baseBranch?: string;
   headBranch?: string;
+}
+
+export interface MergeReviewOptions {
+  /** Explicit user consent — required, the CLI/TUI ask the human first. */
+  consent: boolean;
+  /** Also delete the head branch and remove the review file after a successful merge. */
+  cleanup?: boolean;
+  now?: () => string;
 }
 
 /**
@@ -192,5 +201,50 @@ export class ReviewService {
   /** Render the review as the stable REVIEW.md contract, for the CLI/TUI to write. */
   async exportReview(reviewId: string): Promise<string> {
     return exportReviewMarkdown(await this.#load(reviewId));
+  }
+
+  /**
+   * Merge the reviewed branch into its base with `--no-ff`. Requires consent and an
+   * approved review. Conflicts are auto-resolved main-wins and each resolution is
+   * journalised in the review before the merge commit is written.
+   */
+  async mergeReview(reviewId: string, options: MergeReviewOptions): Promise<Review> {
+    const review = await this.#load(reviewId);
+    if (review.status !== 'approved') throw new ReviewError(`cannot merge a ${review.status} review`);
+    if (!options.consent) throw new ReviewError('merge consent required');
+    const now = options.now ?? this.#now;
+
+    await this.#gateway.checkout(review.baseBranch, this.#cwd);
+    const result = await this.#gateway.mergeNoCommit(review.headBranch, this.#cwd);
+
+    let merged = review;
+    if (!result.merged) {
+      if (result.conflicts.length === 0) {
+        await this.#gateway.abortMerge(this.#cwd).catch(() => undefined);
+        throw new ReviewError(result.failure ?? 'merge failed without conflicts; aborted');
+      }
+      try {
+        await this.#gateway.resolveOurs(result.conflicts, this.#cwd);
+      } catch (err) {
+        await this.#gateway.abortMerge(this.#cwd).catch(() => undefined);
+        throw err;
+      }
+      for (const path of result.conflicts) {
+        merged = logConflict(merged, path, { now });
+      }
+    }
+
+    if (!result.upToDate) {
+      await this.#gateway.commitAll(`merge branch '${review.headBranch}' into ${review.baseBranch}`, this.#cwd);
+    }
+
+    const final = applyTransition(merged, 'merged', { now });
+    await this.#store.save(final);
+
+    if (options.cleanup) {
+      await this.#gateway.deleteBranch(review.headBranch, this.#cwd);
+      await this.#store.remove(reviewId);
+    }
+    return final;
   }
 }
