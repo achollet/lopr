@@ -111,15 +111,19 @@ function assembleFiles(nameStatus: string, numstat: string, body: string, ignore
   return files;
 }
 
-/**
- * The GitHub-style three-dot diff: `merge-base(base, head)..head`. Same
- * semantic as a GitHub PR — stable when the base branch moves.
- */
-export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions = {}): Promise<ThreeDotDiff> {
+export interface BranchResolution {
+  base: string;
+  head: string;
+}
+
+/** Resolve base/head refs: option → `.lopr/config.json` → git default branch. */
+export async function resolveBranches(
+  gateway: GitGateway,
+  options: { base?: string; head?: string; cwd?: string },
+): Promise<BranchResolution> {
   const cwd = options.cwd ?? process.cwd();
   const repoRoot = await gateway.repoRoot(cwd);
   const config = await loadConfig(repoRoot);
-  const ignore = options.ignore ?? config.ignore;
   const base = options.base ?? config.base ?? (await gateway.defaultBranch(cwd));
   if (!base) {
     throw new GitError(
@@ -129,6 +133,19 @@ export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions 
     );
   }
   const head = options.head ?? (await gateway.currentBranch(cwd));
+  return { base, head };
+}
+
+/**
+ * The GitHub-style three-dot diff: `merge-base(base, head)..head`. Same
+ * semantic as a GitHub PR — stable when the base branch moves.
+ */
+export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions = {}): Promise<ThreeDotDiff> {
+  const cwd = options.cwd ?? process.cwd();
+  const repoRoot = await gateway.repoRoot(cwd);
+  const config = await loadConfig(repoRoot);
+  const ignore = options.ignore ?? config.ignore;
+  const { base, head } = await resolveBranches(gateway, { base: options.base, head: options.head, cwd });
   const mergeBase = await gateway.mergeBase(base, head, cwd);
 
   const [nameStatus, numstat, body] = await Promise.all([
