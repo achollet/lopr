@@ -1,1 +1,8 @@
-pnpm commitlint --edit "$1"
+# Ensure node is available: git hooks run without the login shell that loads fnm.
+if ! command -v node >/dev/null 2>&1; then
+  export FNM_PATH="$HOME/.local/share/fnm"
+  export PATH="$FNM_PATH:$PATH"
+  command -v fnm >/dev/null 2>&1 && eval "$(fnm env --shell bash)"
+fi
+
+exec commitlint --edit "$1"
