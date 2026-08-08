@@ -1,16 +1,16 @@
 {
-  "name": "@lopr/vscode",
+  "name": "lopr-vscode",
   "displayName": "lopr — Local Pull Request",
   "version": "0.1.0",
   "description": "Local Pull Request — VS Code extension (main review surface)",
-  "type": "module",
-  "main": "./dist/extension.cjs",
-  "types": "./dist/extension.d.ts",
+  "main": "./dist/extension.js",
   "publisher": "lopr",
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["SCM Providers"],
+  "categories": [
+    "SCM Providers"
+  ],
   "activationEvents": [
     "onCommand:lopr.openReview",
     "onCommand:lopr.status",
@@ -34,13 +34,13 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src"
-  },
-  "dependencies": {
-    "@lopr/core": "workspace:*"
+    "lint": "eslint src",
+    "package": "vsce package"
   },
   "devDependencies": {
+    "@lopr/core": "workspace:*",
     "@types/node": "^26.1.2",
-    "@types/vscode": "^1.125.0"
+    "@types/vscode": "^1.90.0",
+    "vsce": "^2.15.0"
   }
 }

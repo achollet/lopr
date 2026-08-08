@@ -13,7 +13,6 @@ export default defineConfig({
     alias: {
       '@lopr/core': path.join(root, 'packages/core/src/index.ts'),
       '@lopr/tui': path.join(root, 'packages/tui/src/index.ts'),
-      '@lopr/vscode': path.join(root, 'packages/vscode/src/extension.ts'),
     },
   },
 });
