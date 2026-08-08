@@ -24,7 +24,10 @@ export async function runTui(options: RunTuiOptions = {}): Promise<void> {
   const store = new JsonFileReviewStore(path.join(repoRoot, '.lopr', 'reviews'));
   const service = new ReviewService({ gateway, store, cwd });
 
-  const review = await service.status(options.reviewId ?? '(current branch)');
+  const review =
+    options.reviewId === undefined
+      ? await service.resolveCurrent()
+      : await service.status(options.reviewId);
   const diff = await service.diffForReview(review.id);
 
   const actions = {
