@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { LoprConfig } from './types.js';
 
@@ -21,5 +21,23 @@ export async function loadConfig(repoRoot: string): Promise<LoprConfig> {
   return {
     base: typeof parsed.base === 'string' && parsed.base.length > 0 ? parsed.base : undefined,
     ignore: Array.isArray(parsed.ignore) ? parsed.ignore.filter((x): x is string => typeof x === 'string') : [],
+    skillPath:
+      typeof parsed.skillPath === 'string' && parsed.skillPath.length > 0 ? parsed.skillPath : undefined,
   };
+}
+
+/** Persist `.lopr/config.json`, preserving unknown fields is out of scope. */
+export async function saveConfig(repoRoot: string, config: LoprConfig): Promise<void> {
+  const dir = path.join(repoRoot, '.lopr');
+  await mkdir(dir, { recursive: true });
+  const serialized = JSON.stringify(
+    {
+      base: config.base,
+      ignore: config.ignore,
+      skillPath: config.skillPath,
+    },
+    null,
+    2,
+  );
+  await writeFile(path.join(dir, 'config.json'), `${serialized}\n`, 'utf8');
 }

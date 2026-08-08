@@ -333,5 +333,25 @@ only drawn for the current branch's open review.</li>
 extension host at runtime); the CJS output is <code>dist/extension.cjs</code>, which
 <code>package.json#main</code> now points at.</li>
 </ul>
+
+<h2 id="skill">apply-review skill</h2>
+<p>The agent feedback loop's other half: a skill that tells an AI how to ingest a lopr
+<code>REVIEW.md</code> and apply its feedback. Installed with <code>lopr skill install</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>The document lives in core</strong> (<code>src/skill.ts</code>): <code>skillDocument()</code>
+is pure, version-agnostic prose covering the contract marker, the
+<code>Auto-resolved conflicts</code> (informational, do not act), <code>Feedback</code> by
+<code>path:line</code> with the anchored <code>&gt; </code> line and <code>Apply in \`path\`:
+```diff`</code> blocks, and <code>Non localized</code> detached threads. Rules: touch only the named
+files/lines, reply on the thread, rerun <code>lopr export</code> to loop.</li>
+<li><strong>Install is idempotent and recorded</strong>: default target is
+<code>.lopr/skills</code>, <code>--path</code> overrides; the chosen path is persisted in
+<code>.lopr/config.json</code> as <code>skillPath</code> (new <code>LoprConfig</code> field, added
+<code>saveConfig</code> to core). A reinstall to a different path asks before overwriting; a
+reinstall to the same path is a silent no-op write.</li>
+<li><strong>Verification on first run</strong>: the command reports the written file; the config
+round-trips the path, so a later <code>skill install</code> can detect a previous install.</li>
+</ul>
 </body>
 </html>

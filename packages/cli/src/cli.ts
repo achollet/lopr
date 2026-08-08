@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,8 +7,11 @@ import {
   GitCli,
   JsonFileReviewStore,
   ReviewService,
+  SKILL_FILENAME,
   VERSION,
   loadConfig,
+  saveConfig,
+  skillDocument,
 } from '@lopr/core';
 
 export interface CliIO {
@@ -76,7 +79,7 @@ Commands:
   merge <id>         merge the reviewed branch into its base (asks for consent)
                      --yes --cleanup
   export <id>        write REVIEW.md for the agent to ingest (--out <path>)
-  skill              agent skills (install)
+  skill install     install the apply-review skill (--path <dir>, default .lopr/skills)
 
 Run 'lopr <command> --help' for nothing in particular.
 `;
@@ -183,6 +186,33 @@ async function cmdExport(service: ReviewService, args: ParsedArgs, io: CliIO, cw
   return 0;
 }
 
+async function cmdSkill(io: CliIO, args: ParsedArgs, repoRoot: string): Promise<number> {
+  const sub = args.positionals[1];
+  if (sub !== undefined && sub !== 'install') {
+    io.err(`lopr: unknown skill subcommand '${sub}' (try 'lopr skill install')`);
+    return 1;
+  }
+  const target =
+    flag(args, 'path') !== undefined
+      ? path.resolve(repoRoot, flag(args, 'path') as string)
+      : path.join(repoRoot, '.lopr', 'skills');
+  const config = await loadConfig(repoRoot);
+  if (config.skillPath !== undefined && config.skillPath !== target) {
+    const answer = await io.ask(`lopr: skill is installed at ${config.skillPath}; reinstall to ${target}? [y/N] `);
+    if (!/^y(es)?$/i.test(answer.trim())) {
+      io.out('lopr: skill install cancelled');
+      return 0;
+    }
+  }
+  await mkdir(target, { recursive: true });
+  const file = path.join(target, SKILL_FILENAME);
+  await writeFile(file, skillDocument(), 'utf8');
+  await saveConfig(repoRoot, { ...config, skillPath: target });
+  io.out(`lopr: apply-review skill installed at ${file}`);
+  io.out('lopr: point your agent at this file to ingest REVIEW.md');
+  return 0;
+}
+
 async function cmdMerge(service: ReviewService, args: ParsedArgs, io: CliIO): Promise<number> {
   const reviewId = args.positionals[1];
   if (reviewId === undefined) {
@@ -261,8 +291,7 @@ export async function main(argv: string[], deps: CliDeps = {}): Promise<number> 
       case 'export':
         return await cmdExport(service, args, io, repoRoot);
       case 'skill':
-        io.err(`lopr: skill is not implemented yet — ships with the apply-review epic`);
-        return 1;
+        return await cmdSkill(io, args, repoRoot);
       default:
         io.err(`lopr: unknown command '${cmd}'`);
         io.err(HELP);
