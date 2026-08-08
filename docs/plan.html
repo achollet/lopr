@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Local Pull Request — plan</title>
+<style>:root{color-scheme:light dark}body{font:16px/1.6 system-ui,sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{white-space:pre-wrap;background:color-mix(in srgb,currentColor 8%,transparent);padding:1rem;border-radius:.4rem}h2{margin-top:2rem}td,th{text-align:left;padding:.3rem .6rem;border-bottom:1px solid color-mix(in srgb,currentColor 20%,transparent)}</style>
+</head>
+<body>
+<h1>Local Pull Request</h1>
+<p><em>Promoted from the mindpalace: <code>idea-260807xq1w</code></em></p>
+<h2>Original idea (verbatim)</h2>
+<pre>---
+id: idea-260807xq1w
+title: Local Pull Request
+status: ready
+tags: [outil, pr, review]
+created: 2026-08-04
+updated: 2026-08-07
+enrichmentCount: 12
+---
+
+# Local Pull Request
+
+## Pitch
+
+Outil pour creer un pull request 100% localement, sans repo distant, afin de reviever le code produit par un agent IA : commentaires par ligne, threads, request changes ou approbation, puis merge. Reproduit le workflow PR GitHub en local, en boucle avec l'agent (local ou SaaS). Stack retenue : TypeScript monorepo (core + CLI + TUI ink + extension VS Code).
+
+## Fonctionnalites
+
+- diff local (git diff merge-base...head, trois-points, meme semantique que GitHub)
+- commentaires ancres par ligne : (sha, fichier, ligne) + re-ancrage contextuel en secours
+- threads + resolution
+- statuts de review : comment / approve / request-changes
+- merge --no-ff dans la branche de base
+- export REVIEW.md (ou skill opencode apply-review) pour que l'agent ingere les retours
+
+## Questions ouvertes
+
+- surface de review principale : VS Code (webview) ou TUI ?
+- nom du produit (lopr ? local-pr ?)
+- multi-reviewer ou solo strict ?
+- partage entre machines (remote local) ?
+- detailler le moteur d'ancrage — c'est le coeur du logiciel
+
+
+- Toutes resolues — voir Decisions (grille).
+
+## Decisions (grille)
+
+- Surfaces: core identique, presentations differenciees; features peuvent diverger entre TUI et extension. VS Code webview = surface principale, TUI = minimum (diff/merge/export).\n- Reviewers: solo strict en V1; stockage ouvert a un champ author futur, pas de design ferme.\n- Partage: pas de partage actif en V1; store portable par fichiers.
+
+- Unite de revue: la boucle entiere. Les commentaires persistent et se re-ancrent a travers les iterations agent (implementation/feedback jusqu'a version satisfaisante). Re-anchorage = coeur dur.
+
+- Stockage: JSON par review; rendu uniquement via les surfaces (TUI/extension), pas de lecture directe du fichier par l'humain.\n- Export: REVIEW.md agnostique de l'agent, contrat stable. Skill apply-review dans le repo; son installation fait partie de l'installation du TUI/extension, vers un emplacement defini par l'utilisateur.\n- Merge: merge dans main, conflits regles automatiquement puis commit. Deux modes: (a) repo distant -&gt; push de la branche + ouverture d'une PR (si repo multi-collaborateur); (b) 100% local mono-contributeur -&gt; merge branche dans main, suppression branche et du fichier de review.\n- Nom: lopr (binaire/package), nom complet 'Local Pull Request'.
+
+- Ancrage: cote nouveau, commentaire = (file, line) courant + (oldSha, oldLine) origine; ligne seule en v1, endLine nullable.\n- Re-anchorage: (a) mapping par hunks git diff oldHead..newHead exact, puis (b) recherche contextuelle tolerant aux espaces si la ligne tombe dans une zone reecrite, puis (c) etat detache.\n- Echec d'ancrage: detache, jamais silencieux, jamais bloquant seul; figure dans REVIEW.md section 'non localises'; le reviewer re-ancre ou ecarte au merge.\n- Mode: 100% local uniquement, pas de mode PR distant. Merge: avertir l'utilisateur et demander son accord avant de merger; si refus, l'utilisateur gere la branche lui-meme, la PR locale peut quand meme etre marquee terminee.\n- Conflits: main gagne (contenu de main privilegie sur les chevauchements), puis relance d'une boucle pour reappliquer le besoin contre le nouveau main; conflits auto-resolus journalises dans la revue.
+
+- Statuts PR: open, request-changes, approved, merged, done (terminable sans merge, atteignable de partout), closed. Transitions validees par le core. Statuts de review par review, pas par commentaire.\n- Commentaire: id, file, line courant, oldSha/oldLine, instantane de contexte (lignes voisines, obligatoire pour le fallback Q10), body, status (active/resolu/detache), auteur reserve, parentId + resolvedAt. SUGGESTION DE CODE OBLIGATOIRE EN V1: proposer un patch inline 'remplacer X par Y' — un des buts de l'appli.\n- Diff: renames detectes (defaut git), gros fichiers tronques + extension dans la surface, fichiers generes ignores par patron configurable (lopr.ignore), binaires marques et jamais aneres.\n- Skill: lopr skill install [--path], defaut interactif, verif a la premiere execution, config retient le chemin + reinstallation proposee.\n- Delivery: pnpm + tsup + vitest, version unique pour les 4 packages, extension en .vsix. Repo GitHub + CI/CD GitHub Actions a concevoir, extension trouvable depuis VS Code a etudier.
+
+- Branche de base: defaut dans .lopr/config.json du repo, surchargeable par parametre CLI de lopr, fallback sur la branche par defaut git.\n- Repo: GitHub public, licence MIT; dans un premier temps, PR et contributions limitees aux contributeurs (l'utilisateur).\n- Extension: .vsix seul attache aux releases jusqu'a la v1.0; marketplace VS Code et Open VSX a etudier a la v1.0.
+
+- Repo workflow: trunk-based (branches courtes par boucle agent, revue via lopr, merge dans main toujours releasable); conventional commits imposes en CI (commitlint); release notes auto-generees depuis les titres de PR a chaque tag v*.\n- Contrat REVIEW.md: en-tete (branche/base, statut), section conflits auto-resolus (main gagnant), commentaires par path:ligne (extrait, retour, suggestion optionnelle), section non localises (detaches).</pre>
+<h2>Analysis</h2>
+<p>To fill in.</p>
+<h2>Architecture</h2>
+<p>To fill in.</p>
+<h2>Chosen stack</h2>
+<p>To fill in, justified against the knowledge base.</p>
+<h2>Risks</h2>
+<p>To fill in.</p>
+</body>
+</html>
