@@ -93,6 +93,25 @@ export class ReviewService {
     return review;
   }
 
+  /**
+   * The review for the current branch — the open one if it exists, otherwise
+   * a new one. The surfaces (TUI, extension) call this to make "review this
+   * branch" idempotent.
+   */
+  async resolveCurrent(input: NewReviewCommand = {}): Promise<Review> {
+    const head = await this.#gateway.currentBranch(this.#cwd);
+    const summaries = await this.#store.list();
+    const open = summaries.find(
+      (summary) =>
+        summary.headBranch === head &&
+        summary.status !== 'merged' &&
+        summary.status !== 'done' &&
+        summary.status !== 'closed',
+    );
+    if (open) return this.#load(open.id);
+    return this.newReview(input);
+  }
+
   async comment(input: CommentCommand): Promise<Review> {
     const review = await this.#load(input.reviewId);
     if (input.parentId !== undefined) {

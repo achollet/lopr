@@ -1,12 +1,34 @@
 {
   "name": "@lopr/vscode",
+  "displayName": "lopr — Local Pull Request",
   "version": "0.1.0",
   "description": "Local Pull Request — VS Code extension (main review surface)",
   "type": "module",
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "types": "./dist/extension.d.ts",
+  "publisher": "lopr",
   "engines": {
     "vscode": "^1.90.0"
+  },
+  "categories": ["SCM Providers"],
+  "activationEvents": [
+    "onCommand:lopr.openReview",
+    "onCommand:lopr.status",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "lopr.openReview",
+        "title": "lopr: Open Review",
+        "category": "lopr"
+      },
+      {
+        "command": "lopr.status",
+        "title": "lopr: Show Status",
+        "category": "lopr"
+      }
+    ]
   },
   "scripts": {
     "build": "tsup",
