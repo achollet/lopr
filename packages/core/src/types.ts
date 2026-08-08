@@ -33,4 +33,6 @@ export interface LoprConfig {
   base?: string;
   /** Glob patterns of generated files to exclude from the diff. */
   ignore: string[];
+  /** Directory the apply-review skill was installed to (set by `lopr skill install`). */
+  skillPath?: string;
 }

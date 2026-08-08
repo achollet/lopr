@@ -14,7 +14,7 @@ export { parseDiffBody, truncateHunks } from './diff-model.js';
 export type { DiffLine, DiffLineKind, Hunk, ParsedDiff, Truncation } from './diff-model.js';
 export { GitCli, GitError } from './gateway.js';
 export type { GitGateway } from './gateway.js';
-export { loadConfig } from './config.js';
+export { loadConfig, saveConfig } from './config.js';
 export { matchesIgnore } from './ignore.js';
 export type { ChangeStatus, FileDiff, LoprConfig, ThreeDotDiff } from './types.js';
 export {
@@ -45,3 +45,4 @@ export { JsonFileReviewStore, summaryOf } from './store.js';
 export type { ReviewStore, ReviewSummary } from './store.js';
 export { makeRepo } from './test-utils.js';
 export type { TestRepo } from './test-utils.js';
+export { skillDocument, SKILL_FILENAME } from './skill.js';

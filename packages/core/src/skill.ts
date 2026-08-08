@@ -1,0 +1,44 @@
+export const SKILL_FILENAME = 'apply-review.md';
+
+/**
+ * The apply-review skill: an agent-agnostic instruction document telling an AI
+ * how to consume a lopr `REVIEW.md` and apply its feedback to the code.
+ */
+export function skillDocument(): string {
+  return [
+    '# apply-review — apply lopr REVIEW.md feedback',
+    '',
+    'You are asked to apply the feedback of a lopr review (Local Pull Request) to the code.',
+    '',
+    '## Where the feedback lives',
+    '',
+    '- `REVIEW.md` at the repository root, written by `lopr export`.',
+    '- Contract marker: `<!-- lopr-review: v1 -->` at the top. The format is versioned; if a future',
+    '  version appears, read it the same way — sections stay backward compatible.',
+    '- The status line tells you the review state: `open`, `request-changes`, `approved`, ...',
+    '',
+    '## What to do',
+    '',
+    '1. Read `REVIEW.md` fully.',
+    '2. `## Auto-resolved conflicts` is informational only — those conflicts were resolved',
+    '   main-wins during the merge. Do not act on them.',
+    '3. `## Feedback` lists one `### \`path:line\`` section per thread:',
+    '   - The anchored line is prefixed with `> ` inside its code block.',
+    '   - The comment body is the request: apply it to the current file at that line.',
+    '   - A thread may carry an `Apply in \`path\`:  ```diff` block — apply that replacement',
+    '     exactly: `-` lines are removed, `+` lines are added.',
+    '4. `## Non localized` holds detached threads (their anchor is gone): apply the request by',
+    '   matching the content to the nearest similar code.',
+    '5. After applying, do not mark anything resolved by hand. Rerun the loop:',
+    '   `lopr export` to refresh REVIEW.md, then re-review the new diff.',
+    '',
+    '## Rules',
+    '',
+    '- Touch only the files the review names, at the lines it names.',
+    '- Keep the change minimal and match the surrounding style.',
+    '- If a named line no longer exists, or the request is ambiguous, say so instead of guessing.',
+    '- Reply on the thread (`lopr comment --reply-to <id> ...`) when you act, so the human sees',
+    '  what you did and why.',
+    '',
+  ].join('\n');
+}
