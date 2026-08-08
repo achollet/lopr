@@ -20,6 +20,25 @@ export interface AnchorComment {
   contextAnchor: number;
 }
 
+export interface ContextSnapshot {
+  context: string[];
+  contextAnchor: number;
+}
+
+/**
+ * Build the mandatory context snapshot around a 1-based line: two lines before
+ * and after, clamped at the file boundaries. The anchored line sits at
+ * `contextAnchor` within the window.
+ */
+export function buildContextSnapshot(lines: string[], line: number): ContextSnapshot {
+  const start = Math.max(0, line - 3);
+  const end = Math.min(lines.length, line + 2);
+  return {
+    context: lines.slice(start, end),
+    contextAnchor: line - 1 - start,
+  };
+}
+
 /** Whitespace-tolerant line comparison: collapse all runs of whitespace to one space. */
 function normalizeLine(line: string): string {
   return line.replace(/\s+/g, ' ').trim();
