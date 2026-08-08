@@ -70,5 +70,25 @@ be anchored later).</li>
 <code>git symbolic-ref --short -q HEAD</code> falls back to <code>HEAD</code> for detached state;
 <code>maxBuffer</code> raised to 64&nbsp;MiB for large agent-loop diffs.</li>
 </ul>
+<h2 id="diff-model">Diff model</h2>
+<p>Parsing of the per-file unified diff body into hunks, in
+<code>packages/core/src/diff-model.ts</code>.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><code>parseDiffBody</code> is pure and always returns <strong>every</strong> hunk.
+Truncation is a display concern (<code>truncateHunks(hunks, max)</code>), never part of
+the model the anchoring engine will read — a truncated map would silently lose
+comment re-anchors.</li>
+<li>Hunk line numbers are tracked incrementally from <code>oldStart</code>/<code>newStart</code>:
+context increments both, removed only old, added only new. The
+<code>\ No newline at end of file</code> marker is ignored (it is not a diff line).
+Omitted counts in <code>@@ -5 +5 @@</code> mean 1. Section headings after the second
+<code>@@</code> are captured.</li>
+<li>Header lines (<code>diff --git</code>, <code>index</code>, <code>--- a/</code>,
+<code>+++ b/</code>, <code>similarity index</code>, <code>rename from/to</code>) are skipped
+because a hunk header match requires <code>^@@ -</code> and content lines always carry a
+<code> </code>/<code>-</code>/<code>+</code> prefix.</li>
+<li>Empty and binary bodies yield zero hunks.</li>
+</ul>
 </body>
 </html>
