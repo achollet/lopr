@@ -7,8 +7,9 @@ export type { BranchResolution, DiffBetweenOptions, DiffOptions } from './diff.j
 export { mapOldLineToNew, reanchorComment, buildContextSnapshot } from './anchoring.js';
 export type { AnchorComment, AnchorResult, AnchorStatus, ContextSnapshot } from './anchoring.js';
 export { ReviewService } from './service.js';
-export type { CommentCommand, NewReviewCommand, ReviewServiceOptions } from './service.js';
+export type { CommentCommand, MergeReviewOptions, NewReviewCommand, ReviewServiceOptions } from './service.js';
 export { REVIEW_MD_FORMAT, exportReviewMarkdown } from './export.js';
+export type { MergeResult } from './gateway.js';
 export { parseDiffBody, truncateHunks } from './diff-model.js';
 export type { DiffLine, DiffLineKind, Hunk, ParsedDiff, Truncation } from './diff-model.js';
 export { GitCli, GitError } from './gateway.js';
