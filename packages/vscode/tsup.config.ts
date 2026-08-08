@@ -6,4 +6,5 @@ export default defineConfig({
   dts: false,
   clean: true,
   target: 'node22',
+  external: ['vscode'],
 });

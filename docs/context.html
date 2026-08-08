@@ -300,5 +300,38 @@ keeping input handling in the same state machine the tests cover.</li>
 <li><strong>JSX forced a <code>.tsx</code> entry</strong> (<code>src/index.tsx</code>, tsup emits
 <code>dist/index.js</code>) and <code>jsx: react-jsx</code> in <code>tsconfig.base.json</code>.</li>
 </ul>
+
+<h2 id="vscode">VS Code extension</h2>
+<p>Main review surface in <code>packages/vscode</code>: a webview panel opened with
+<code>lopr.openReview</code>, plus <code>lopr.status</code> (one-line summary) and gutter
+decorations on the changed lines of the reviewed branch. The extension host owns
+<code>core</code> (it is the only place the webview can get git/fs) and talks to the page over the
+standard message protocol.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>The protocol is a testable controller</strong> (<code>src/controller.ts</code>): every
+webview message maps to one service call and returns an <code>init</code>/<code>update</code>/
+<code>exported</code>/<code>error</code> reply. It imports nothing from the <code>vscode</code>
+namespace, so <code>controller.test.ts</code> drives the whole review flow (comment, reply,
+resolve, approve, export, apply-suggestion) against real throwaway repos in vitest.</li>
+<li><strong>The webview is dumb and safe</strong>: a single static HTML string (<code>webview.ts</code>,
+CSP <code>default-src 'none'</code>) with zero external assets; all state arrives via
+<code>postMessage</code> structured-clone, so user content is never interpolated into markup. The
+host pre-parses each file diff (<code>diffView.ts</code>) — the page renders lines without
+re-parsing.</li>
+<li><strong>Inline suggestions are end-to-end</strong>: a comment can carry a
+<code>suggestion {oldText, newText}</code>; <code>Apply suggestion</code> matches the oldText in
+the working tree (nearest to the comment line when ambiguous, else first),
+<code>applySuggestion.ts</code> rewrites the file, and the comment is resolved.</li>
+<li><strong>Find-or-create on open</strong>: the controller boots with
+<code>service.resolveCurrent()</code> — new core API that returns the current branch's open review
+or creates one, making "review this branch" idempotent. The TUI now uses it too.</li>
+<li><strong>Diff decorations</strong>: <code>changedLineRanges</code> maps the diff's new-side added
+lines to editor ranges (gutter highlight), refreshed on active-editor change. The decorations are
+only drawn for the current branch's open review.</li>
+<li><strong>Build notes</strong>: <code>vscode</code> is external to the tsup bundle (provided by the
+extension host at runtime); the CJS output is <code>dist/extension.cjs</code>, which
+<code>package.json#main</code> now points at.</li>
+</ul>
 </body>
 </html>
