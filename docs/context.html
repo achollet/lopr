@@ -353,5 +353,34 @@ reinstall to the same path is a silent no-op write.</li>
 <li><strong>Verification on first run</strong>: the command reports the written file; the config
 round-trips the path, so a later <code>skill install</code> can detect a previous install.</li>
 </ul>
+<h2 id="release">Packaging &amp; release</h2>
+<p>One version everywhere, one artifact per tag, CI green on every commit.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>Single version</strong>: <code>scripts/bump-version.mjs &lt;semver&gt;</code> writes the version
+into the root + four <code>package.json</code> files and the <code>VERSION</code> constant in core
+(<code>pnpm version:bump</code>). Run it, then <code>pnpm install</code> to refresh the lockfile; the
+release commit carries both.</li>
+<li><strong>Release flow</strong>: tag <code>v*</code> triggers <code>.github/workflows/release.yml</code>
+(install → typecheck/test/lint/build → version sync to the tag → <code>vsce package</code> →
+GitHub Release with release notes auto-generated from merged PR titles and the <code>.vsix</code>
+attached). The plan defers marketplace (VS Code + Open VSX) to v1.0: <code>.vsix</code>-only until
+then.</li>
+<li><strong>Extension packaging</strong>: the VS Code package is named <code>lopr-vscode</code> (vsce
+rejects scoped names); it is CommonJS with no <code>type</code> field, <code>main</code> points at
+<code>dist/extension.js</code>, <code>@types/vscode</code> pinned to the <code>engines.vscode</code>
+floor (<code>^1.90.0</code>). <code>@lopr/core</code> moved to <code>devDependencies</code>:
+<code>tsup</code> bundles it, so the published <code>.vsix</code> has zero runtime deps beyond the
+host's <code>vscode</code> module. <code>package.json</code> carries <code>publisher: lopr</code>,
+commands + activation events, a README and a <code>.vscodeignore</code>; a copy of the MIT LICENSE
+sits in the package for vsce.</li>
+<li><strong>CI</strong>: <code>ci.yml</code> now runs <code>pnpm -r lint</code> alongside
+typecheck/test/build on every push/PR. The <code>repository</code> field is intentionally absent until
+the GitHub remote exists (the user fills it at first push); vsce only warns.</li>
+<li><strong>keytar</strong>: native build disabled (<code>allowBuilds.keytar: false</code>); vsce uses
+it only for token storage, and publication can rely on <code>VSCE_PAT</code>.</li>
+</ul>
+<h2 id="dogfood">Docs &amp; dogfooding</h2>
+<p>Trunk-based workflow and lopr reviewing its own branches. <em>In progress.</em></p>
 </body>
 </html>
