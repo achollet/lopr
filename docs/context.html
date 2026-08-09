@@ -249,5 +249,34 @@ default for the audit trail.</li>
 branch before merging, so a dirty worktree fails loudly at the checkout rather than corrupting a
 merge.</li>
 </ul>
+
+<h2 id="cli">CLI</h2>
+<p>The <code>lopr</code> binary in <code>packages/cli</code> — a thin wrapper over core. Commands:
+<code>new · comment · approve · request-changes · resolve · status · list · merge · export</code>
+(<code>skill</code> is registered and lands with the apply-review epic).</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>No argument-parser dependency</strong>: a ~20-line <code>parseArgs</code> handles
+positionals and <code>--flag value</code> / <code>--flag=value</code> / bare boolean flags. The CLI
+stays dependency-free; core keeps the logic.</li>
+<li><strong>Boot is explicit</strong>: <code>repoRoot</code> first, then
+<code>.lopr/reviews</code> store and the config (<code>--base</code> overrides
+<code>config.base</code>, which overrides the git default branch). The service is injected in tests,
+so <code>main(argv, { io, service })</code> is fully testable without subprocesses.</li>
+<li><strong>Consent lives in the CLI</strong>: <code>merge</code> prompts <code>[y/N]</code> through an
+injectable <code>ask</code> and only then passes <code>consent: true</code> to core; <code>--yes</code>
+is the explicit non-interactive escape hatch. <code>export</code> writes the file (CLI I/O), the
+markdown itself comes from core.</li>
+<li><strong>Commenting is one shape</strong>: a reply is <code>--reply-to</code>; the service ignores
+<code>file</code>/<code>line</code> for replies, so the CLI sends them only for roots. Inline
+suggestions are <code>--suggest-old/--suggest-new</code> (one side may be empty = pure add/delete).</li>
+<li><strong>Errors are one line</strong>: every command failure prints <code>lopr: &lt;message&gt;</code>
+and exits 1; help exits 0. The bin guard uses <code>pathToFileURL(argv[1])</code> so importing
+<code>main</code> in tests never executes the CLI.</li>
+<li><strong>Traps hit</strong>: TS <code>noUncheckedIndexedAccess</code> forces <code>!</code> on
+<code>argv[i]</code> in the parser; vitest had no path alias to the workspace <em>sources</em>, so
+<code>vitest.config.ts</code> now maps <code>@lopr/*</code> to their <code>src</code> entry points
+(tests run before build).</li>
+</ul>
 </body>
 </html>
