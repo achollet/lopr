@@ -91,7 +91,7 @@ function ThreadsPane({ state }: { state: TuiState }): React.ReactElement {
   const active = state.pane === 'threads';
   const file = state.files[state.selectedFile];
   const threads = file
-    ? state.threads.filter((t) => t.file === file.path && t.parentId === undefined)
+    ? state.threads.filter((t) => t.file === file.path && t.parentId === null)
     : [];
   return (
     <Box flexDirection="column" width={40} borderStyle="round" borderColor={active ? 'cyan' : 'gray'}>
