@@ -1,6 +1,6 @@
 import { buildContextSnapshot, reanchorComment } from './anchoring.js';
 import { getDiffBetween, getThreeDotDiff, newFileProvider, resolveBranches } from './diff.js';
-import type { ThreeDotDiff } from './types.js';
+import type { FileDiff, ThreeDotDiff } from './types.js';
 import { exportReviewMarkdown } from './export.js';
 import type { GitGateway } from './gateway.js';
 import {
@@ -199,11 +199,21 @@ export class ReviewService {
     const review = await this.#load(reviewId);
     const head = await this.#headSha(review.headBranch);
     const provider = newFileProvider(this.#gateway, head, this.#cwd);
+    const diffCache = new Map<string, Promise<FileDiff[]>>();
+
+    const cachedDiff = (originSha: string): Promise<FileDiff[]> => {
+      let promise = diffCache.get(originSha);
+      if (!promise) {
+        promise = getDiffBetween(this.#gateway, { old: originSha, new: head, cwd: this.#cwd });
+        diffCache.set(originSha, promise);
+      }
+      return promise;
+    };
 
     const comments = await Promise.all(
       review.comments.map(async (comment): Promise<ReviewComment> => {
         if (comment.parentId !== null || comment.origin === null || comment.origin.sha === head) return comment;
-        const diff = await getDiffBetween(this.#gateway, { old: comment.origin.sha, new: head, cwd: this.#cwd });
+        const diff = await cachedDiff(comment.origin.sha);
         const result = await reanchorComment(diff, provider, {
           file: comment.file ?? '',
           line: comment.origin.line,
