@@ -56,6 +56,27 @@ class FakeGateway implements GitGateway {
     const value = this.files.get(sha)?.get(path);
     return value === undefined ? null : value;
   }
+  async checkout() {
+    return undefined;
+  }
+  async mergeNoCommit() {
+    return { merged: true, upToDate: false, conflicts: [] };
+  }
+  async unmergedPaths() {
+    return [];
+  }
+  async resolveOurs() {
+    return undefined;
+  }
+  async abortMerge() {
+    return undefined;
+  }
+  async commitAll() {
+    return undefined;
+  }
+  async deleteBranch() {
+    return undefined;
+  }
   async revParse(ref: string) {
     const value = this.revParseMap.get(ref);
     if (value === undefined) throw new Error(`unknown ref: ${ref}`);
