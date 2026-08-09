@@ -231,6 +231,21 @@ describe('ReviewService transitions', () => {
   });
 });
 
+describe('ReviewService.exportReview', () => {
+  it('renders the REVIEW.md contract for a stored review', async () => {
+    const { gateway, service } = makeService();
+    gateway.revParseMap.set('feature', 'sha-f1');
+    gateway.files.set('sha-f1', new Map([['a.txt', 'a\nb\n']]));
+    const review = await service.newReview();
+    await service.comment({ reviewId: review.id, file: 'a.txt', line: 1, body: 'note' });
+
+    const md = await service.exportReview(review.id);
+    expect(md).toContain('# Local Pull Request');
+    expect(md).toContain(`- base: ${review.baseBranch}`);
+    expect(md).toContain('## Feedback');
+  });
+});
+
 describe('ReviewService.reanchor', () => {
   const INSERT_BEFORE = `diff --git a/a.txt b/a.txt
 --- a/a.txt

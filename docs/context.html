@@ -190,5 +190,35 @@ as <code>Promise&lt;ReviewComment&gt;</code>. Test fixtures that fake <code>git 
 must start with <code>diff --git …</code> or the body counter in <code>assembleFiles</code>
 rejects them.</li>
 </ul>
+
+<h2 id="export">REVIEW.md export</h2>
+<p>Renders a review as the stable REVIEW.md contract for the agent to ingest, in
+<code>packages/core/src/export.ts</code> (<code>exportReviewMarkdown</code>, pure Review → string) —
+surfaced through <code>ReviewService.exportReview</code>. This is the agent-facing output the
+apply-review skill will consume.</p>
+<p>Decisions taken:</p>
+<ul>
+<li><strong>A stable, versioned contract</strong>: title + <code>&lt;!-- lopr-review: v1 --&gt;</code>
+machine marker, then metadata (<code>id · base · head · status · author · updated</code>). The format
+is a compatibility surface, so it is versioned independently of the review schema.</li>
+<li><strong>One thread per <code>###</code>, grouped by file, ordered by line</strong>. The snippet is
+the stored context snapshot in a <code>text</code> fence with the anchored line prefixed
+<code>&gt; </code> — the self-sufficient snapshot the anchoring engine already guarantees. Replies
+nest under their root (<code>#### author — createdAt</code>) with no snippet of their own.</li>
+<li><strong>Suggestions render as an actionable diff block</strong> (<code>Apply in `path`:`</code>
++ <code>diff</code> fence), so the skill can apply oldText→newText mechanically; an empty side of a
+suggestion renders an empty line rather than a phantom <code>+</code>/<code>-</code>.</li>
+<li><strong>Sections appear only when non-empty</strong>: <code>Auto-resolved conflicts</code>
+(driven by the <code>conflicts</code> log the merge orchestrator will fill), <code>Feedback</code>
+(active + resolved roots, resolved marked <code>[resolved]</code>), <code>Non localized</code>
+(detached roots — never silently dropped). An empty review is still a valid, parseable document.</li>
+<li><strong>The conflict log lives on the review</strong>, not in the exporter: schema bumped to
+<code>version: 2</code> with <code>conflicts: AutoResolvedConflict[]</code> (path + at, validated by
+<code>parseReview</code>) and a domain op <code>logConflict</code> — the export is then a pure view
+of one object and the merge epic only appends records.</li>
+<li><strong>Traps hit</strong>: a <code>for…of</code> over <code>Map</code> with an unused key
+binding is flagged by eslint — iterate <code>.values()</code> instead. Backticks inside inline paths
+are escaped so a hostile path cannot break the fence.</li>
+</ul>
 </body>
 </html>
