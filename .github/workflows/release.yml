@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm -r lint
+      - run: pnpm build
+
+      - name: Sync version to tag
+        run: node scripts/bump-version.mjs "${GITHUB_REF_NAME#v}"
+
+      - name: Refresh lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Package extension
+        run: |
+          mkdir -p dist
+          cd packages/vscode
+          pnpm exec vsce package --out "../../dist/lopr-${GITHUB_REF_NAME#v}.vsix"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/lopr-*.vsix
+          generate_release_notes: true

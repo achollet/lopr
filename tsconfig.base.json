@@ -17,8 +17,7 @@
     "types": ["node"],
     "paths": {
       "@lopr/core": ["./packages/core/src/index.ts"],
-      "@lopr/tui": ["./packages/tui/src/index.ts"],
-      "@lopr/vscode": ["./packages/vscode/src/index.ts"]
+      "@lopr/tui": ["./packages/tui/src/index.ts"]
     }
   }
 }
