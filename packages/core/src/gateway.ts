@@ -98,8 +98,11 @@ export class GitCli implements GitGateway {
   }
 
   async currentBranch(cwd = process.cwd()): Promise<string> {
-    const out = (await this.run(['symbolic-ref', '--short', '-q', 'HEAD'], cwd)).trim();
-    return out || 'HEAD';
+    try {
+      return (await this.run(['symbolic-ref', '--short', 'HEAD'], cwd)).trim();
+    } catch {
+      return 'HEAD';
+    }
   }
 
   async branchExists(ref: string, cwd = process.cwd()): Promise<boolean> {
