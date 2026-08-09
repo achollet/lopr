@@ -101,7 +101,7 @@ async function decorate(editor: vscode.TextEditor, gateway: GitCli): Promise<voi
     const store = new JsonFileReviewStore(path.join(repoRoot, '.lopr', 'reviews'));
     const service = new ReviewService({ gateway, store, cwd });
     const reviews = await service.list();
-    const open = reviews.find((r) => r.headBranch === branch && r.status === 'open');
+    const open = reviews.find((r) => r.headBranch === branch && r.status !== 'merged' && r.status !== 'done' && r.status !== 'closed');
     if (!open) {
       editor.setDecorations(decorationType, []);
       return;
