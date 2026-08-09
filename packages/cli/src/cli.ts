@@ -148,11 +148,16 @@ async function cmdComment(service: ReviewService, args: ParsedArgs, io: CliIO): 
     oldText !== undefined || newText !== undefined
       ? { oldText: oldText ?? '', newText: newText ?? '' }
       : undefined;
+  const lineFlag = flag(args, 'line');
+  if (lineFlag !== undefined && !/^\d+$/.test(lineFlag)) {
+    io.err(`lopr: --line must be a positive integer, got '${lineFlag}'`);
+    return 1;
+  }
   const updated = await service.comment({
     reviewId,
     parentId: replyTo,
     file: flag(args, 'file'),
-    line: flag(args, 'line') !== undefined ? Number(flag(args, 'line')) : undefined,
+    line: lineFlag !== undefined ? Number(lineFlag) : undefined,
     body,
     suggestion,
   });

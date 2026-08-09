@@ -110,6 +110,20 @@ describe('main', () => {
     expect(err.join('\n')).toContain('requires --body');
   });
 
+  it('rejects a comment with a non-numeric --line', async () => {
+    const r = repo();
+    r.write('a.txt', 'x\n');
+    r.git('add', '-A');
+    r.git('commit', '-m', 'base');
+    r.git('checkout', '-b', 'feature');
+    const { err, io } = capture();
+
+    expect(
+      await main(['comment', 'r1', '--file', 'a.txt', '--line', 'abc', '--body', 'nope'], { io, service: makeService(r.dir) }),
+    ).toBe(1);
+    expect(err.join('\n')).toContain('--line must be a positive integer');
+  });
+
   it('approves and lists', async () => {
     const r = repo();
     r.write('a.txt', 'x\n');
