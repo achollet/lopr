@@ -66,6 +66,25 @@ describe('exportReviewMarkdown', () => {
     expect(md).toContain('+b');
   });
 
+  it('renders a deletion suggestion without a blank line in the diff block', () => {
+    const review = addComment(baseReview(), {
+      id: 'c1',
+      file: 'src/a.ts',
+      line: 1,
+      origin: { sha: 'abc', line: 1 },
+      context: ['a'],
+      contextAnchor: 0,
+      body: 'drop it',
+      suggestion: { oldText: 'a', newText: '' },
+      now: () => NOW,
+    });
+    const md = exportReviewMarkdown(review);
+    const block = md.slice(md.indexOf('```diff'), md.indexOf('```', md.indexOf('```diff') + 3));
+    expect(block).toContain('-a');
+    expect(block).not.toContain('+');
+    expect(block).not.toMatch(/\n\n/);
+  });
+
   it('nests replies under their root without their own snippet', () => {
     const withRoot = root(baseReview());
     const withReply = addComment(withRoot, {

@@ -36,9 +36,9 @@ function snippet(comment: ReviewComment): string {
 function suggestion(comment: ReviewComment): string | null {
   if (comment.suggestion === null || comment.file === null) return null;
   const { oldText, newText } = comment.suggestion;
-  const diff = [`-${oldText}`, `+${newText}`];
-  if (oldText === '') diff[0] = '';
-  if (newText === '') diff[1] = '';
+  const diff: string[] = [];
+  if (oldText !== '') diff.push(`-${oldText}`);
+  if (newText !== '') diff.push(`+${newText}`);
   return [`Apply in \`${escapeCode(comment.file)}\`:`, '```diff', ...diff, '```'].join('\n');
 }
 
