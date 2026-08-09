@@ -2,9 +2,16 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { CodeSuggestion } from '@lopr/core';
 
-export interface ApplySuggestionError {
-  reason: 'not-found' | 'io' | 'invalid';
-  message: string;
+export type ApplySuggestionReason = 'not-found' | 'io' | 'invalid';
+
+export class ApplySuggestionError extends Error {
+  readonly reason: ApplySuggestionReason;
+
+  constructor(reason: ApplySuggestionReason, message: string) {
+    super(message);
+    this.name = 'ApplySuggestionError';
+    this.reason = reason;
+  }
 }
 
 /**
@@ -19,19 +26,19 @@ export async function applySuggestion(
   suggestion: CodeSuggestion,
 ): Promise<void> {
   if (!suggestion.oldText) {
-    throw Object.assign(new Error('suggestion has no oldText to match'), { reason: 'invalid' }) as unknown as ApplySuggestionError;
+    throw new ApplySuggestionError('invalid', 'suggestion has no oldText to match');
   }
   const target = path.join(repoRoot, file);
   let content: string;
   try {
     content = await readFile(target, 'utf8');
   } catch (error) {
-    throw Object.assign(new Error(`cannot read ${file}: ${(error as Error).message}`), { reason: 'io' }) as unknown as ApplySuggestionError;
+    throw new ApplySuggestionError('io', `cannot read ${file}: ${(error as Error).message}`);
   }
 
   const candidates = indicesOf(content, suggestion.oldText);
   if (candidates.length === 0) {
-    throw Object.assign(new Error(`suggestion text not found in ${file}`), { reason: 'not-found' }) as unknown as ApplySuggestionError;
+    throw new ApplySuggestionError('not-found', `suggestion text not found in ${file}`);
   }
 
   let at = candidates[0] as number;
@@ -43,7 +50,7 @@ export async function applySuggestion(
   try {
     await writeFile(target, updated, 'utf8');
   } catch (error) {
-    throw Object.assign(new Error(`cannot write ${file}: ${(error as Error).message}`), { reason: 'io' }) as unknown as ApplySuggestionError;
+    throw new ApplySuggestionError('io', `cannot write ${file}: ${(error as Error).message}`);
   }
 }
 
