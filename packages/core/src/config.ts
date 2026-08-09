@@ -17,7 +17,12 @@ export async function loadConfig(repoRoot: string): Promise<LoprConfig> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return DEFAULT_CONFIG;
     throw err;
   }
-  const parsed = JSON.parse(raw) as Partial<LoprConfig>;
+  let parsed: Partial<LoprConfig>;
+  try {
+    parsed = JSON.parse(raw) as Partial<LoprConfig>;
+  } catch {
+    return DEFAULT_CONFIG;
+  }
   return {
     base: typeof parsed.base === 'string' && parsed.base.length > 0 ? parsed.base : undefined,
     ignore: Array.isArray(parsed.ignore) ? parsed.ignore.filter((x): x is string => typeof x === 'string') : [],
