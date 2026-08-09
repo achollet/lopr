@@ -293,6 +293,9 @@ export function parseReview(raw: string): Review {
       }
     }
   }
+  if (!Array.isArray(value.statusLog)) missing.push('statusLog');
+  if (typeof value.createdAt !== 'string' || value.createdAt === '') missing.push('createdAt');
+  if (typeof value.updatedAt !== 'string' || value.updatedAt === '') missing.push('updatedAt');
   if (missing.length > 0) throw new ReviewError(`malformed review file: missing/invalid ${missing.join(', ')}`);
   return value as unknown as Review;
 }
