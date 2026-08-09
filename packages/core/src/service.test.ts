@@ -82,6 +82,9 @@ class FakeGateway implements GitGateway {
     if (value === undefined) throw new Error(`unknown ref: ${ref}`);
     return value;
   }
+  async isDirty() {
+    return false;
+  }
 }
 
 class MemoryStore implements ReviewStore {

@@ -257,6 +257,10 @@ export class ReviewService {
     if (!options.consent) throw new ReviewError('merge consent required');
     const now = options.now ?? this.#now;
 
+    if (await this.#gateway.isDirty(this.#cwd)) {
+      throw new ReviewError('working tree has uncommitted changes; commit or stash before merging');
+    }
+
     await this.#gateway.checkout(review.baseBranch, this.#cwd);
     const result = await this.#gateway.mergeNoCommit(review.headBranch, this.#cwd);
 

@@ -68,6 +68,8 @@ export interface GitGateway {
   commitAll(message: string, cwd?: string): Promise<void>;
   /** `git branch -D <branch>`. */
   deleteBranch(branch: string, cwd?: string): Promise<void>;
+  /** True when the working tree has uncommitted changes. */
+  isDirty(cwd?: string): Promise<boolean>;
 }
 
 export class GitCli implements GitGateway {
@@ -217,5 +219,10 @@ export class GitCli implements GitGateway {
 
   async deleteBranch(branch: string, cwd = process.cwd()): Promise<void> {
     await this.run(['branch', '-D', branch], cwd);
+  }
+
+  async isDirty(cwd = process.cwd()): Promise<boolean> {
+    const out = await this.run(['status', '--porcelain', '--untracked-files=no'], cwd);
+    return out.length > 0;
   }
 }
