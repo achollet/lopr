@@ -16,11 +16,21 @@ const decorationType = vscode.window.createTextEditorDecorationType({
 
 export function activate(context: vscode.ExtensionContext): void {
   const gateway = new GitCli();
+  const serviceCache = new Map<string, ReviewService>();
 
-  const controllerOf = async (cwd: string): Promise<ReviewController> => {
+  const serviceOf = async (cwd: string): Promise<ReviewService> => {
+    const cached = serviceCache.get(cwd);
+    if (cached) return cached;
     const repoRoot = await gateway.repoRoot(cwd);
     const store = new JsonFileReviewStore(path.join(repoRoot, '.lopr', 'reviews'));
     const service = new ReviewService({ gateway, store, cwd });
+    serviceCache.set(cwd, service);
+    return service;
+  };
+
+  const controllerOf = async (cwd: string): Promise<ReviewController> => {
+    const repoRoot = await gateway.repoRoot(cwd);
+    const service = await serviceOf(cwd);
     return new ReviewController({ service, repoRoot });
   };
 
@@ -79,27 +89,30 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (!editor) return;
-      void decorate(editor, gateway);
+      void decorate(editor, gateway, serviceOf);
     }),
   );
 
   void (async () => {
     const editor = vscode.window.activeTextEditor;
-    if (editor) await decorate(editor, gateway);
+    if (editor) await decorate(editor, gateway, serviceOf);
   })();
 
   context.subscriptions.push(decorationType);
 }
 
 /** Gutter-highlight the reviewed branch's changed lines in the open editor. */
-async function decorate(editor: vscode.TextEditor, gateway: GitCli): Promise<void> {
+async function decorate(
+  editor: vscode.TextEditor,
+  gateway: GitCli,
+  serviceOf: (cwd: string) => Promise<ReviewService>,
+): Promise<void> {
   const cwd = workspaceRoot();
   if (!cwd) return;
   try {
     const repoRoot = await gateway.repoRoot(cwd);
     const branch = await gateway.currentBranch(cwd);
-    const store = new JsonFileReviewStore(path.join(repoRoot, '.lopr', 'reviews'));
-    const service = new ReviewService({ gateway, store, cwd });
+    const service = await serviceOf(cwd);
     const reviews = await service.list();
     const open = reviews.find((r) => r.headBranch === branch && r.status !== 'merged' && r.status !== 'done' && r.status !== 'closed');
     if (!open) {
