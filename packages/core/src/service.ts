@@ -1,5 +1,6 @@
 import { buildContextSnapshot, reanchorComment } from './anchoring.js';
-import { getDiffBetween, newFileProvider, resolveBranches } from './diff.js';
+import { getDiffBetween, getThreeDotDiff, newFileProvider, resolveBranches } from './diff.js';
+import type { ThreeDotDiff } from './types.js';
 import { exportReviewMarkdown } from './export.js';
 import type { GitGateway } from './gateway.js';
 import {
@@ -23,7 +24,7 @@ export interface ReviewServiceOptions {
 
 export interface CommentCommand {
   reviewId: string;
-  /** Omit to post a root comment; set to post a reply. */
+  /** Set to post a reply; file/line are then ignored. */
   parentId?: string;
   file?: string;
   line?: number;
@@ -94,23 +95,20 @@ export class ReviewService {
 
   async comment(input: CommentCommand): Promise<Review> {
     const review = await this.#load(input.reviewId);
-    const head = await this.#headSha(review.headBranch);
-
     if (input.parentId !== undefined) {
       const updated = addComment(review, {
         parentId: input.parentId,
         body: input.body,
-        suggestion: input.suggestion,
         author: this.#author,
         now: this.#now,
       });
       await this.#store.save(updated);
       return updated;
     }
-
     if (input.file === undefined || input.line === undefined) {
-      throw new ReviewError('root comment requires --file and --line');
+      throw new ReviewError('root comment requires a file and a line');
     }
+    const head = await this.#headSha(review.headBranch);
     const lines = await newFileProvider(this.#gateway, head, this.#cwd)(input.file);
     if (lines === null) throw new ReviewError(`file not found at ${head}: ${input.file}`);
     const line = input.line;
@@ -119,6 +117,7 @@ export class ReviewService {
     }
     const snapshot = buildContextSnapshot(lines, line);
     const updated = addComment(review, {
+      parentId: input.parentId,
       file: input.file,
       line,
       origin: { sha: head, line },
@@ -216,6 +215,16 @@ export class ReviewService {
   /** Render the review as the stable REVIEW.md contract, for the CLI/TUI to write. */
   async exportReview(reviewId: string): Promise<string> {
     return exportReviewMarkdown(await this.#load(reviewId));
+  }
+
+  /** Three-dot diff of the reviewed branch, for the TUI to render. */
+  async diffForReview(reviewId: string): Promise<ThreeDotDiff> {
+    const review = await this.#load(reviewId);
+    return getThreeDotDiff(this.#gateway, {
+      base: review.baseBranch,
+      head: review.headBranch,
+      cwd: this.#cwd,
+    });
   }
 
   /**
