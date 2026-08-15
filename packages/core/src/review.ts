@@ -30,13 +30,10 @@ export function isCommentStatus(value: unknown): value is CommentStatus {
 }
 
 export interface CommentOrigin {
-  /** Commit sha the comment was written against. */
   sha: string;
-  /** Old-side line in that commit. */
   line: number;
 }
 
-/** Inline suggestion "replace X by Y" — mandatory V1 capability. */
 export interface CodeSuggestion {
   oldText: string;
   newText: string;
@@ -44,18 +41,12 @@ export interface CodeSuggestion {
 
 export interface ReviewComment {
   id: string;
-  /** null = thread root; replies carry no anchors of their own. */
   parentId: string | null;
-  /** Current path; null for replies. */
   file: string | null;
-  /** Current line; null for replies and detached roots keep their last anchor. */
   line: number | null;
-  /** Reserved — single-line anchors only in V1. */
   endLine: number | null;
   origin: CommentOrigin | null;
-  /** Snapshot of surrounding lines, mandatory for the re-anchor fallback. */
   context: string[];
-  /** Index of the anchored line within `context`. */
   contextAnchor: number;
   body: string;
   status: CommentStatus;
@@ -71,7 +62,6 @@ export interface StatusTransition {
   at: string;
 }
 
-/** A conflict auto-resolved main-wins during merge, journalised in the review. */
 export interface AutoResolvedConflict {
   path: string;
   at: string;
@@ -137,14 +127,12 @@ export function createReview(input: NewReview): Review {
 
 export interface NewComment {
   id?: string;
-  /** Set to post a reply; replies inherit the thread's anchors. */
   parentId?: string;
   file?: string;
   line?: number | null;
   endLine?: number | null;
   origin?: CommentOrigin;
   context?: string[];
-  /** Index of the anchored line within `context`. Defaults to the middle. */
   contextAnchor?: number;
   body: string;
   suggestion?: CodeSuggestion | null;
@@ -222,7 +210,6 @@ export function transition(review: Review, to: ReviewStatus, opts?: { now?: () =
   };
 }
 
-/** Journalise a main-wins auto-resolution during merge. */
 export function logConflict(review: Review, path: string, opts?: { now?: () => string }): Review {
   if (path.trim() === '') throw new ReviewError('conflict path is required');
   const at = (opts?.now ?? defaultNow)();
@@ -241,21 +228,6 @@ export function resolveComment(review: Review, id: string, opts?: { now?: () => 
   };
 }
 
-/** Thread from root (first) to the given comment, via the parentId chain. */
-export function getThread(review: Review, id: string): ReviewComment[] {
-  const index = new Map(review.comments.map((c) => [c.id, c]));
-  const start = index.get(id);
-  if (!start) throw new ReviewError(`unknown comment: ${id}`);
-  const chain: ReviewComment[] = [];
-  let current: ReviewComment | undefined = start;
-  while (current) {
-    chain.push(current);
-    current = current.parentId ? index.get(current.parentId) : undefined;
-  }
-  return chain.reverse();
-}
-
-/** Parse and shape-check a stored review. Never returns null for bad data. */
 export function parseReview(raw: string): Review {
   let value: unknown;
   try {

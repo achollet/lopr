@@ -1,27 +1,5 @@
 import type { AutoResolvedConflict, Review, ReviewComment } from './review.js';
 
-/**
- * Stable contract for REVIEW.md (lopr-review v1), the file an agent ingests to
- * apply the review. Pure: Review -> markdown, no I/O.
- *
- * Layout:
- *   # Local Pull Request          (title + <!-- lopr-review: v1 --> marker)
- *   - metadata (id, base, head, status, author, updated)
- *   ## Auto-resolved conflicts    (only when review.conflicts is non-empty)
- *   ## Feedback                   (one ### per root comment, grouped by file)
- *   ## Non localized              (detached roots, never silently dropped)
- *
- * A thread is rendered as:
- *   ### `path:line` — id [resolved]
- *   ```text                        (context snapshot, anchored line prefixed '> ')
- *   .../> anchored/...
- *   ```
- *   body
- *   Apply in `path`: + ```diff     (only when the comment carries a suggestion)
- *   #### author — createdAt        (replies, no snippet of their own)
- *   reply body
- */
-
 export const REVIEW_MD_FORMAT = 'lopr-review: v1';
 
 function escapeCode(value: string): string {

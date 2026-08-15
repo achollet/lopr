@@ -4,10 +4,6 @@ import type { LoprConfig } from './types.js';
 
 export const DEFAULT_CONFIG: LoprConfig = { ignore: [] };
 
-/**
- * Load `.lopr/config.json` from the repo root. Missing file -> defaults,
- * so config is always optional.
- */
 export async function loadConfig(repoRoot: string): Promise<LoprConfig> {
   const configPath = path.join(repoRoot, '.lopr', 'config.json');
   let raw: string;
@@ -31,7 +27,6 @@ export async function loadConfig(repoRoot: string): Promise<LoprConfig> {
   };
 }
 
-/** Persist `.lopr/config.json`, preserving unknown fields is out of scope. */
 export async function saveConfig(repoRoot: string, config: LoprConfig): Promise<void> {
   const dir = path.join(repoRoot, '.lopr');
   await mkdir(dir, { recursive: true });

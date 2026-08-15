@@ -1,8 +1,6 @@
 export const VERSION = '0.1.0';
 
-export const PACKAGE_NAME = '@lopr/core';
-
-export { getThreeDotDiff, getDiffBetween, newFileProvider, resolveBranches } from './diff.js';
+export { getThreeDotDiff, getDiffBetween, newSideFileProvider, resolveBranches } from './diff.js';
 export type { BranchResolution, DiffBetweenOptions, DiffOptions } from './diff.js';
 export { mapOldLineToNew, reanchorComment, buildContextSnapshot } from './anchoring.js';
 export type { AnchorComment, AnchorResult, AnchorStatus, ContextSnapshot } from './anchoring.js';
@@ -10,8 +8,8 @@ export { ReviewService } from './service.js';
 export type { CommentCommand, MergeReviewOptions, NewReviewCommand, ReviewServiceOptions } from './service.js';
 export { REVIEW_MD_FORMAT, exportReviewMarkdown } from './export.js';
 export type { MergeResult } from './gateway.js';
-export { parseDiffBody, truncateHunks } from './diff-model.js';
-export type { DiffLine, DiffLineKind, Hunk, ParsedDiff, Truncation } from './diff-model.js';
+export { parseDiffBody, flattenHunks } from './diff-model.js';
+export type { DiffLine, DiffLineKind, Hunk, ParsedDiff } from './diff-model.js';
 export { GitCli, GitError } from './gateway.js';
 export type { GitGateway } from './gateway.js';
 export { loadConfig, saveConfig } from './config.js';
@@ -20,7 +18,6 @@ export type { ChangeStatus, FileDiff, LoprConfig, ThreeDotDiff } from './types.j
 export {
   addComment,
   createReview,
-  getThread,
   isCommentStatus,
   isReviewStatus,
   parseReview,

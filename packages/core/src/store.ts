@@ -24,7 +24,6 @@ export interface ReviewStore {
 
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
-/** One JSON file per review in a directory (`.lopr/reviews`). Humans never read it. */
 export class JsonFileReviewStore implements ReviewStore {
   readonly #dir: string;
 

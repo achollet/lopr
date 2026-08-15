@@ -4,12 +4,9 @@ import { matchesIgnore } from './ignore.js';
 import type { ChangeStatus, FileDiff, ThreeDotDiff } from './types.js';
 
 export interface DiffOptions {
-  /** Base branch/ref. Default: `.lopr/config.json` `base`, else git default branch. */
   base?: string;
-  /** Head ref. Default: current branch (or `HEAD` when detached). */
   head?: string;
   cwd?: string;
-  /** Ignore globs overriding the ones from `.lopr/config.json`. */
   ignore?: string[];
 }
 
@@ -74,7 +71,6 @@ function parseNumstat(stdout: string): Map<string, NumstatStat> {
   return map;
 }
 
-/** Split a full `git diff` output into per-file bodies. */
 function splitBodies(stdout: string): string[] {
   if (!stdout) return [];
   return stdout
@@ -116,7 +112,6 @@ export interface BranchResolution {
   head: string;
 }
 
-/** Resolve base/head refs: option → `.lopr/config.json` → git default branch. */
 export async function resolveBranches(
   gateway: GitGateway,
   options: { base?: string; head?: string; cwd?: string },
@@ -136,10 +131,6 @@ export async function resolveBranches(
   return { base, head };
 }
 
-/**
- * The GitHub-style three-dot diff: `merge-base(base, head)..head`. Same
- * semantic as a GitHub PR — stable when the base branch moves.
- */
 export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions = {}): Promise<ThreeDotDiff> {
   const cwd = options.cwd ?? process.cwd();
   const repoRoot = await gateway.repoRoot(cwd);
@@ -158,19 +149,12 @@ export async function getThreeDotDiff(gateway: GitGateway, options: DiffOptions 
 }
 
 export interface DiffBetweenOptions {
-  /** Old side of the tree-to-tree diff (a commit sha). */
   old: string;
-  /** New side of the tree-to-tree diff (a commit sha). */
   new: string;
   ignore?: string[];
   cwd?: string;
 }
 
-/**
- * Two-dot, tree-to-tree diff between two commits — the shape the anchoring
- * engine re-anchors against. Unlike the three-dot form this compares the two
- * trees directly, so it stays correct when the agent rebases/amends history.
- */
 export async function getDiffBetween(gateway: GitGateway, options: DiffBetweenOptions): Promise<FileDiff[]> {
   const cwd = options.cwd ?? process.cwd();
   const ignore = options.ignore ?? [];
@@ -182,8 +166,7 @@ export async function getDiffBetween(gateway: GitGateway, options: DiffBetweenOp
   return assembleFiles(nameStatus, numstat, body, ignore);
 }
 
-/** Adapter feeding the anchoring engine new-side file contents from git. */
-export function newFileProvider(gateway: GitGateway, sha: string, cwd?: string) {
+export function newSideFileProvider(gateway: GitGateway, sha: string, cwd?: string) {
   return async (path: string): Promise<string[] | null> => {
     const content = await gateway.showFile(sha, path, cwd);
     if (content === null) return null;

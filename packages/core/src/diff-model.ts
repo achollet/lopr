@@ -2,11 +2,8 @@ export type DiffLineKind = 'context' | 'added' | 'removed';
 
 export interface DiffLine {
   kind: DiffLineKind;
-  /** Old-side 1-based line number; undefined for added lines. */
   oldLine?: number;
-  /** New-side 1-based line number; undefined for removed lines. */
   newLine?: number;
-  /** Line content without the `+/ /-` prefix. */
   text: string;
 }
 
@@ -15,7 +12,6 @@ export interface Hunk {
   oldCount: number;
   newStart: number;
   newCount: number;
-  /** Free-text section heading after the `@@`. */
   section: string;
   lines: DiffLine[];
 }
@@ -26,13 +22,6 @@ export interface ParsedDiff {
 
 const HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/;
 
-/**
- * Parse the unified diff body of a single file into hunks. Header lines
- * (`diff --git`, `index`, `--- a/`, `+++ b/`, `similarity index`,
- * `rename from/to`, `\ No newline at end of file`) are skipped.
- * Always returns every hunk — truncation is a display concern
- * (`truncateHunks`), never part of the model the anchoring engine reads.
- */
 export function parseDiffBody(body: string): ParsedDiff {
   const hunks: Hunk[] = [];
   let current: Hunk | null = null;
@@ -74,20 +63,6 @@ export function parseDiffBody(body: string): ParsedDiff {
   return { hunks };
 }
 
-export interface Truncation {
-  hunks: Hunk[];
-  truncated: boolean;
-  droppedHunks: number;
-}
-
-/** Keep the first `maxHunks` hunks of a file for display. */
-export function truncateHunks(hunks: Hunk[], maxHunks: number): Truncation {
-  if (maxHunks <= 0 || hunks.length <= maxHunks) {
-    return { hunks, truncated: false, droppedHunks: 0 };
-  }
-  return {
-    hunks: hunks.slice(0, maxHunks),
-    truncated: true,
-    droppedHunks: hunks.length - maxHunks,
-  };
+export function flattenHunks(hunks: Hunk[]): DiffLine[] {
+  return hunks.flatMap((hunk) => hunk.lines);
 }

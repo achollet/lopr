@@ -1,9 +1,5 @@
 export const SKILL_FILENAME = 'apply-review.md';
 
-/**
- * The apply-review skill: an agent-agnostic instruction document telling an AI
- * how to consume a lopr `REVIEW.md` and apply its feedback to the code.
- */
 export function skillDocument(): string {
   return [
     '# apply-review — apply lopr REVIEW.md feedback',

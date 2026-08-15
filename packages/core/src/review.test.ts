@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   addComment,
   createReview,
-  getThread,
   logConflict,
   parseReview,
   resolveComment,
@@ -213,25 +212,6 @@ describe('resolveComment', () => {
 
   it('rejects an unknown comment id', () => {
     expect(() => resolveComment(withComment, 'nope')).toThrow('unknown comment');
-  });
-});
-
-describe('getThread', () => {
-  it('returns the thread from root to reply', () => {
-    const withRoot = addComment(baseReview(), {
-      body: 'root',
-      file: 'src/a.ts',
-      line: 1,
-      origin: { sha: 'abc', line: 1 },
-      context: ['x'],
-    });
-    const withReply = addComment(withRoot, { parentId: withRoot.comments[0]!.id, body: 'reply' });
-    const thread = getThread(withReply, withReply.comments[1]!.id);
-    expect(thread.map((c) => c.body)).toEqual(['root', 'reply']);
-  });
-
-  it('rejects an unknown comment id', () => {
-    expect(() => getThread(baseReview(), 'nope')).toThrow('unknown comment');
   });
 });
 
