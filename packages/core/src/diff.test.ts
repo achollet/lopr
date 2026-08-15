@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getDiffBetween, getThreeDotDiff, newFileProvider } from './diff.js';
+import { getDiffBetween, getThreeDotDiff, newSideFileProvider } from './diff.js';
 import { GitCli } from './gateway.js';
 import { makeRepo, type TestRepo } from './test-utils.js';
 
@@ -142,13 +142,13 @@ describe('getDiffBetween', () => {
   });
 });
 
-describe('newFileProvider', () => {
+describe('newSideFileProvider', () => {
   it('reads file content at a commit and returns null for missing paths', async () => {
     const repo = newRepo();
     repo.write('a.txt', 'line1\nline2\n');
     repo.commit('v1');
     const sha = repo.git('rev-parse', 'HEAD');
-    const provider = newFileProvider(new GitCli(), sha, repo.dir);
+    const provider = newSideFileProvider(new GitCli(), sha, repo.dir);
 
     expect(await provider('a.txt')).toEqual(['line1', 'line2']);
     expect(await provider('missing.txt')).toBeNull();

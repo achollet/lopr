@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -22,8 +23,7 @@ export interface CliIO {
 
 export interface CliDeps {
   io?: Partial<CliIO>;
-  /** Injected service (tests); otherwise booted from `cwd`. */
-  service?: ReviewService;
+  serviceOverride?: ReviewService;
   cwd?: string;
 }
 
@@ -244,13 +244,18 @@ export async function main(argv: string[], deps: CliDeps = {}): Promise<number> 
   const args = parseArgs(argv);
   const cmd = args.positionals[0];
 
+  if (args.flags.version === true) {
+    io.out(`lopr ${VERSION}`);
+    return 0;
+  }
+
   if (cmd === undefined || args.flags.help === true) {
     io.out(HELP);
     return 0;
   }
 
   const cwd = deps.cwd ?? process.cwd();
-  let service = deps.service;
+  let service = deps.serviceOverride;
   let repoRoot = cwd;
   if (service === undefined) {
     try {
@@ -320,7 +325,8 @@ async function runById(service: ReviewService, args: ParsedArgs, io: CliIO, meth
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+const entry = process.argv[1];
+if (entry !== undefined && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   main(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
   });

@@ -1,12 +1,6 @@
-import { parseDiffBody, type DiffLine, type FileDiff } from '@lopr/core';
+import { flattenHunks, parseDiffBody, type DiffLine, type FileDiff } from '@lopr/core';
 
-/** One display line of a file diff, pre-parsed for the webview. */
-export interface DiffViewLine {
-  kind: DiffLine['kind'];
-  oldLine?: number;
-  newLine?: number;
-  text: string;
-}
+export type DiffViewLine = DiffLine;
 
 export interface DiffViewFile {
   path: string;
@@ -17,7 +11,6 @@ export interface DiffViewFile {
   lines: DiffViewLine[];
 }
 
-/** Serialize raw file diffs into lines the webview can render without re-parsing. */
 export function diffViewFiles(files: FileDiff[]): DiffViewFile[] {
   return files.map((file) => ({
     path: file.path,
@@ -25,15 +18,6 @@ export function diffViewFiles(files: FileDiff[]): DiffViewFile[] {
     additions: file.additions,
     deletions: file.deletions,
     binary: file.binary,
-    lines: file.binary
-      ? []
-      : parseDiffBody(file.body).hunks.flatMap((hunk) =>
-          hunk.lines.map((line) => ({
-            kind: line.kind,
-            oldLine: line.oldLine,
-            newLine: line.newLine,
-            text: line.text,
-          })),
-        ),
+    lines: file.binary ? [] : flattenHunks(parseDiffBody(file.body).hunks),
   }));
 }

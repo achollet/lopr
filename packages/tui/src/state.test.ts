@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { FileDiff, ReviewComment } from '@lopr/core';
 import {
+  cursorAnchor,
   fileView,
   initialTuiState,
   reduce,
-  selectedAnchor,
   type TuiState,
 } from './state.js';
 
@@ -115,7 +115,7 @@ describe('comment mode', () => {
   it('refuses to start a comment on a removed line (no new-side anchor)', () => {
     const state = twoFiles();
     const onRemoved = reduce(state, { type: 'cursor-down' });
-    expect(selectedAnchor(onRemoved)).toBeNull();
+    expect(cursorAnchor(onRemoved)).toBeNull();
     const after = reduce(onRemoved, { type: 'comment-start' });
     expect(after.mode).toBe('browse');
   });
@@ -139,12 +139,12 @@ describe('comment mode', () => {
   });
 });
 
-describe('selectedAnchor', () => {
+describe('cursorAnchor', () => {
   it('resolves the cursor line to a file + new-side line', () => {
     let state = twoFiles();
-    state = reduce(state, { type: 'cursor-down' }); // removed line
-    state = reduce(state, { type: 'cursor-down' }); // added line
-    expect(selectedAnchor(state)).toEqual({ file: 'src/a.ts', line: 2 });
+    state = reduce(state, { type: 'cursor-down' });
+    state = reduce(state, { type: 'cursor-down' });
+    expect(cursorAnchor(state)).toEqual({ file: 'src/a.ts', line: 2 });
   });
 });
 

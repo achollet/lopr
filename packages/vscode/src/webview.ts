@@ -1,4 +1,3 @@
-/** Static, self-contained webview page. All state arrives via postMessage. */
 export function webviewHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">

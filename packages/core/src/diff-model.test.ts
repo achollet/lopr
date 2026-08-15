@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDiffBody, truncateHunks } from './diff-model.js';
+import { parseDiffBody, flattenHunks } from './diff-model.js';
 
 describe('parseDiffBody', () => {
   it('parses a modified file with context, removed and added lines', () => {
@@ -150,35 +150,14 @@ Binary files a/img.png and b/img.png differ
   });
 });
 
-describe('truncateHunks', () => {
-  function makeHunks(n: number) {
-    return Array.from({ length: n }, (_, i) => ({
-      oldStart: 1,
-      oldCount: 1,
-      newStart: 1,
-      newCount: 1,
-      section: `s${i}`,
-      lines: [],
-    }));
-  }
-
-  it('keeps everything when under or at the limit', () => {
-    const hunks = makeHunks(3);
-    expect(truncateHunks(hunks, 3)).toEqual({ hunks, truncated: false, droppedHunks: 0 });
-  });
-
-  it('keeps the first hunks and reports the dropped count', () => {
-    const hunks = makeHunks(7);
-    const result = truncateHunks(hunks, 3);
-    expect(result.hunks).toHaveLength(3);
-    expect(result.hunks[2]).toEqual(hunks[2]);
-    expect(result.truncated).toBe(true);
-    expect(result.droppedHunks).toBe(4);
-  });
-
-  it('treats 0 or negative limits as unlimited', () => {
-    const hunks = makeHunks(5);
-    expect(truncateHunks(hunks, 0).truncated).toBe(false);
-    expect(truncateHunks(hunks, -1).hunks).toHaveLength(5);
+describe('flattenHunks', () => {
+  it('flattens all hunk lines into a single list in order', () => {
+    const body = `diff --git a/a.txt b/a.txt
+@@ -1,2 +1,2 @@
+ old
++new
+`;
+    const { hunks } = parseDiffBody(body);
+    expect(flattenHunks(hunks).map((l) => l.text)).toEqual(['old', 'new']);
   });
 });

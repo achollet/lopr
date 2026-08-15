@@ -2,14 +2,13 @@ import path from 'node:path';
 import * as vscode from 'vscode';
 import { GitCli, JsonFileReviewStore, ReviewService } from '@lopr/core';
 import type { FileDiff } from '@lopr/core';
-import { parseDiffBody } from '@lopr/core';
+import { flattenHunks, parseDiffBody } from '@lopr/core';
 import { ReviewController } from './controller.js';
 import { webviewHtml } from './webview.js';
 
 export const EXTENSION_ID = 'lopr';
 
-/** Single decorated gutter per file, replaced on each diff refresh. */
-const decorationType = vscode.window.createTextEditorDecorationType({
+const changedLinesDecoration = vscode.window.createTextEditorDecorationType({
   backgroundColor: 'rgba(27, 94, 32, 0.15)',
   isWholeLine: true,
 });
@@ -89,20 +88,19 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (!editor) return;
-      void decorate(editor, gateway, serviceOf);
+      void decorateChangedLines(editor, gateway, serviceOf);
     }),
   );
 
   void (async () => {
     const editor = vscode.window.activeTextEditor;
-    if (editor) await decorate(editor, gateway, serviceOf);
+    if (editor) await decorateChangedLines(editor, gateway, serviceOf);
   })();
 
-  context.subscriptions.push(decorationType);
+  context.subscriptions.push(changedLinesDecoration);
 }
 
-/** Gutter-highlight the reviewed branch's changed lines in the open editor. */
-async function decorate(
+async function decorateChangedLines(
   editor: vscode.TextEditor,
   gateway: GitCli,
   serviceOf: (cwd: string) => Promise<ReviewService>,
@@ -116,23 +114,22 @@ async function decorate(
     const reviews = await service.list();
     const open = reviews.find((r) => r.headBranch === branch && r.status !== 'merged' && r.status !== 'done' && r.status !== 'closed');
     if (!open) {
-      editor.setDecorations(decorationType, []);
+      editor.setDecorations(changedLinesDecoration, []);
       return;
     }
     const diff = await service.diffForReview(open.id);
     const ranges = changedLineRanges(diff.files, editor.document.uri.fsPath, repoRoot);
-    editor.setDecorations(decorationType, ranges);
+    editor.setDecorations(changedLinesDecoration, ranges);
   } catch {
-    editor.setDecorations(decorationType, []);
+    editor.setDecorations(changedLinesDecoration, []);
   }
 }
 
-/** Map the diff's new-side line numbers of `absolutePath` to editor ranges. */
 export function changedLineRanges(files: FileDiff[], absolutePath: string, repoRoot: string): vscode.Range[] {
   const relative = path.relative(repoRoot, absolutePath).split(path.sep).join('/');
   const file = files.find((f) => f.path === relative);
   if (!file || file.binary) return [];
-  const lines = parseDiffBody(file.body).hunks.flatMap((hunk) => hunk.lines);
+  const lines = flattenHunks(parseDiffBody(file.body).hunks);
   const ranges: vscode.Range[] = [];
   for (const line of lines) {
     if (line.kind === 'added' && line.newLine !== undefined) {
@@ -145,8 +142,4 @@ export function changedLineRanges(files: FileDiff[], absolutePath: string, repoR
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-}
-
-export function deactivate(): void {
-  // no-op
 }

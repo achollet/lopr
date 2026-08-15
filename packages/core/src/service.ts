@@ -1,5 +1,5 @@
 import { buildContextSnapshot, reanchorComment } from './anchoring.js';
-import { getDiffBetween, getThreeDotDiff, newFileProvider, resolveBranches } from './diff.js';
+import { getDiffBetween, getThreeDotDiff, newSideFileProvider, resolveBranches } from './diff.js';
 import type { FileDiff, ThreeDotDiff } from './types.js';
 import { exportReviewMarkdown } from './export.js';
 import type { GitGateway } from './gateway.js';
@@ -24,7 +24,6 @@ export interface ReviewServiceOptions {
 
 export interface CommentCommand {
   reviewId: string;
-  /** Set to post a reply; file/line are then ignored. */
   parentId?: string;
   file?: string;
   line?: number;
@@ -39,18 +38,11 @@ export interface NewReviewCommand {
 }
 
 export interface MergeReviewOptions {
-  /** Explicit user consent — required, the CLI/TUI ask the human first. */
   consent: boolean;
-  /** Also delete the head branch and remove the review file after a successful merge. */
   cleanup?: boolean;
   now?: () => string;
 }
 
-/**
- * Command layer over the domain model. Pure of I/O except through the injected
- * gateway and store. Each command loads, validates, applies a model operation
- * and persists.
- */
 export class ReviewService {
   readonly #gateway: GitGateway;
   readonly #store: ReviewStore;
@@ -93,12 +85,7 @@ export class ReviewService {
     return review;
   }
 
-  /**
-   * The review for the current branch — the open one if it exists, otherwise
-   * a new one. The surfaces (TUI, extension) call this to make "review this
-   * branch" idempotent.
-   */
-  async resolveCurrent(input: NewReviewCommand = {}): Promise<Review> {
+  async resolveOrCreateCurrent(input: NewReviewCommand = {}): Promise<Review> {
     const head = await this.#gateway.currentBranch(this.#cwd);
     const summaries = await this.#store.list();
     const open = summaries.find(
@@ -128,7 +115,7 @@ export class ReviewService {
       throw new ReviewError('root comment requires a file and a line');
     }
     const head = await this.#headSha(review.headBranch);
-    const lines = await newFileProvider(this.#gateway, head, this.#cwd)(input.file);
+    const lines = await newSideFileProvider(this.#gateway, head, this.#cwd)(input.file);
     if (lines === null) throw new ReviewError(`file not found at ${head}: ${input.file}`);
     const line = input.line;
     if (!Number.isInteger(line) || line < 1 || line > lines.length) {
@@ -189,16 +176,10 @@ export class ReviewService {
     return this.#store.list();
   }
 
-  /**
-   * Re-anchor every root comment from its creation point (origin sha/line) to
-   * the current head of the reviewed branch. A comment is updated only when its
-   * anchor actually moved; a successful re-anchor clears `detached`, a failed
-   * one sets it. Replies follow their thread and are never re-anchored.
-   */
   async reanchor(reviewId: string): Promise<Review> {
     const review = await this.#load(reviewId);
     const head = await this.#headSha(review.headBranch);
-    const provider = newFileProvider(this.#gateway, head, this.#cwd);
+    const provider = newSideFileProvider(this.#gateway, head, this.#cwd);
     const diffCache = new Map<string, Promise<FileDiff[]>>();
 
     const cachedDiff = (originSha: string): Promise<FileDiff[]> => {
@@ -241,12 +222,10 @@ export class ReviewService {
     return summaryOf(await this.#load(reviewId));
   }
 
-  /** Render the review as the stable REVIEW.md contract, for the CLI/TUI to write. */
   async exportReview(reviewId: string): Promise<string> {
     return exportReviewMarkdown(await this.#load(reviewId));
   }
 
-  /** Three-dot diff of the reviewed branch, for the TUI to render. */
   async diffForReview(reviewId: string): Promise<ThreeDotDiff> {
     const review = await this.#load(reviewId);
     return getThreeDotDiff(this.#gateway, {
@@ -256,11 +235,6 @@ export class ReviewService {
     });
   }
 
-  /**
-   * Merge the reviewed branch into its base with `--no-ff`. Requires consent and an
-   * approved review. Conflicts are auto-resolved main-wins and each resolution is
-   * journalised in the review before the merge commit is written.
-   */
   async mergeReview(reviewId: string, options: MergeReviewOptions): Promise<Review> {
     const review = await this.#load(reviewId);
     if (review.status !== 'approved') throw new ReviewError(`cannot merge a ${review.status} review`);

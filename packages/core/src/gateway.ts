@@ -15,60 +15,34 @@ export class GitError extends Error {
   }
 }
 
-/** Outcome of `git merge --no-commit --no-ff`. */
 export interface MergeResult {
-  /** True when the merge applied cleanly (staged, nothing left to resolve). */
   merged: boolean;
-  /** True when head was already contained in base — no commit is needed. */
   upToDate: boolean;
-  /** Paths with unmerged (conflicted) entries when `merged` is false. */
   conflicts: string[];
-  /** git stderr when the merge failed for a non-conflict reason. */
   failure?: string;
 }
 
-/** Low-level git operations. Everything is async and runs against the system git. */
 export interface GitGateway {
-  /** Absolute path of the repository root (searched from `cwd`). */
   repoRoot(cwd?: string): Promise<string>;
-  /** Current branch name, or `HEAD` when detached. */
   currentBranch(cwd?: string): Promise<string>;
-  /** True when a local branch with that name exists. */
   branchExists(ref: string, cwd?: string): Promise<boolean>;
-  /** First existing of `main`/`master`, or null. */
   defaultBranch(cwd?: string): Promise<string | null>;
   mergeBase(a: string, b: string, cwd?: string): Promise<string>;
-  /** `git diff --merge-base <base> <head> -M --name-status -z`. */
   diffNameStatus(base: string, head: string, cwd?: string): Promise<string>;
-  /** `git diff --merge-base <base> <head> -M --numstat -z`. */
   diffNumstat(base: string, head: string, cwd?: string): Promise<string>;
-  /** `git diff --merge-base <base> <head> -M --no-color` (full unified diff). */
   diffBody(base: string, head: string, cwd?: string): Promise<string>;
-  /** `git diff <a> <b> -M --name-status -z` (two-dot, tree-to-tree). */
   diffNameStatusBetween(a: string, b: string, cwd?: string): Promise<string>;
-  /** `git diff <a> <b> -M --numstat -z`. */
   diffNumstatBetween(a: string, b: string, cwd?: string): Promise<string>;
-  /** `git diff <a> <b> -M --no-color` (full unified diff). */
   diffBodyBetween(a: string, b: string, cwd?: string): Promise<string>;
-  /** `git show <sha>:<path>` — file content at a commit, null when missing. */
   showFile(sha: string, path: string, cwd?: string): Promise<string | null>;
-  /** `git rev-parse <ref>` — full commit sha of a branch/tag/sha. */
   revParse(ref: string, cwd?: string): Promise<string>;
-  /** `git checkout <branch>`. */
   checkout(branch: string, cwd?: string): Promise<void>;
-  /** `git merge --no-commit --no-ff <branch>`; conflicts leave the merge in progress. */
   mergeNoCommit(branch: string, cwd?: string): Promise<MergeResult>;
-  /** Paths currently in an unmerged (conflicted) state. */
   unmergedPaths(cwd?: string): Promise<string[]>;
-  /** Resolve conflicts main-wins: keep the checked-out base's version. */
   resolveOurs(paths: string[], cwd?: string): Promise<void>;
-  /** `git merge --abort`. */
   abortMerge(cwd?: string): Promise<void>;
-  /** `git commit --no-verify -m <message>`. */
   commitAll(message: string, cwd?: string): Promise<void>;
-  /** `git branch -D <branch>`. */
   deleteBranch(branch: string, cwd?: string): Promise<void>;
-  /** True when the working tree has uncommitted changes. */
   isDirty(cwd?: string): Promise<boolean>;
 }
 
@@ -202,11 +176,14 @@ export class GitCli implements GitGateway {
       try {
         await this.run(['checkout', '--ours', '--', p], cwd);
       } catch {
-        // ours deleted the path (main-wins): finalise the deletion instead.
-        await this.run(['rm', '-f', '--', p], cwd);
+        await this.removeDeletedByOurs(p, cwd);
       }
       await this.run(['add', '--', p], cwd);
     }
+  }
+
+  private async removeDeletedByOurs(path: string, cwd: string): Promise<void> {
+    await this.run(['rm', '-f', '--', path], cwd);
   }
 
   async abortMerge(cwd = process.cwd()): Promise<void> {
