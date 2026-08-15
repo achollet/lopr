@@ -30,7 +30,14 @@ Requires Node ≥ 22 and pnpm. Build the monorepo first, then install each surfa
 pnpm build
 ```
 
-**VS Code extension** — the main review surface. Package it, then install the `.vsix`:
+**VS Code extension** — the main review surface. Download the `.vsix` from the
+[latest release](https://github.com/achollet/lopr/releases) and install it:
+
+```sh
+code --install-extension https://github.com/achollet/lopr/releases/download/v0.1.0/lopr-0.1.0.vsix
+```
+
+Pre-release, build it yourself:
 
 ```sh
 pnpm -C packages/vscode exec vsce package --out ../../dist/lopr-0.1.0.vsix
