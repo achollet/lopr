@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { FileDiff, Review } from '@lopr/core';
-import { reduce, selectedAnchor, type Pane, type TuiState } from './state.js';
+import { cursorAnchor, reduce, type Pane, type TuiState } from './state.js';
 import { initialTuiState } from './state.js';
 
 export interface TuiActions {
@@ -208,7 +208,7 @@ export function App({ review, diff, actions, onQuit }: AppProps): React.ReactEle
           onQuit();
           return;
         case 'c': {
-          const anchor = selectedAnchor(state);
+          const anchor = cursorAnchor(state);
           if (anchor) dispatch({ type: 'comment-start' });
           else setNotice('pick an added/context line to comment');
           break;
@@ -269,7 +269,7 @@ export function App({ review, diff, actions, onQuit }: AppProps): React.ReactEle
   );
 
   const submitComment = (): void => {
-    const anchor = selectedAnchor(state);
+    const anchor = cursorAnchor(state);
     if (!anchor) {
       dispatch({ type: 'comment-cancel' });
       return;

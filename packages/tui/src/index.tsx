@@ -8,15 +8,10 @@ import { JsonFileReviewStore } from '@lopr/core';
 import { App } from './App.js';
 
 export interface RunTuiOptions {
-  /** Review id, defaults to the review on the current branch. */
   reviewId?: string;
   cwd?: string;
 }
 
-/**
- * Boot the service and render the review in a three-pane ink TUI.
- * Kept thin: all navigation logic lives in the pure `state.ts` reducer.
- */
 export async function runTui(options: RunTuiOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const gateway = new GitCli();
@@ -26,7 +21,7 @@ export async function runTui(options: RunTuiOptions = {}): Promise<void> {
 
   const review =
     options.reviewId === undefined
-      ? await service.resolveCurrent()
+      ? await service.resolveOrCreateCurrent()
       : await service.status(options.reviewId);
   const diff = await service.diffForReview(review.id);
 
@@ -55,10 +50,10 @@ export async function runTui(options: RunTuiOptions = {}): Promise<void> {
 export { App } from './App.js';
 export {
   buildView,
+  cursorAnchor,
   fileView,
   initialTuiState,
   reduce,
-  selectedAnchor,
 } from './state.js';
 export type {
   Pane,

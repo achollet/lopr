@@ -1,17 +1,11 @@
 import type { DiffLine, FileDiff, Hunk, ReviewComment } from '@lopr/core';
-import { parseDiffBody } from '@lopr/core';
+import { flattenHunks, parseDiffBody } from '@lopr/core';
 
 export type Pane = 'files' | 'diff' | 'threads';
 
 export type TuiMode = 'browse' | 'comment' | 'merge-confirm';
 
-/** A flattened, cursor-navigable view of one file's diff. */
-export interface ViewLine {
-  kind: DiffLine['kind'];
-  oldLine?: number;
-  newLine?: number;
-  text: string;
-}
+export type ViewLine = DiffLine;
 
 export interface TuiState {
   files: FileDiff[];
@@ -25,14 +19,7 @@ export interface TuiState {
 }
 
 export function buildView(hunks: Hunk[]): ViewLine[] {
-  return hunks.flatMap((hunk) =>
-    hunk.lines.map((line) => ({
-      kind: line.kind,
-      oldLine: line.oldLine,
-      newLine: line.newLine,
-      text: line.text,
-    })),
-  );
+  return flattenHunks(hunks);
 }
 
 export function fileView(file: FileDiff): ViewLine[] {
@@ -54,8 +41,7 @@ export function initialTuiState(files: FileDiff[], threads: ReviewComment[]): Tu
   };
 }
 
-/** The new-side anchor of the cursor, or null when it cannot anchor a comment. */
-export function selectedAnchor(state: TuiState): { file: string; line: number } | null {
+export function cursorAnchor(state: TuiState): { file: string; line: number } | null {
   const file = state.files[state.selectedFile];
   const line = state.view[state.cursor];
   if (!file || !line || line.newLine === undefined) return null;
@@ -109,7 +95,7 @@ export function reduce(state: TuiState, action: TuiAction): TuiState {
       return { ...state, pane: action.pane };
     case 'comment-start':
       if (state.mode !== 'browse' || state.pane !== 'diff') return state;
-      if (selectedAnchor(state) === null) return state;
+      if (cursorAnchor(state) === null) return state;
       return { ...state, mode: 'comment', commentBody: '' };
     case 'comment-change':
       if (state.mode !== 'comment') return state;
