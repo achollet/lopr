@@ -72,7 +72,7 @@ describe('main', () => {
     r.git('checkout', '-b', 'feature');
     const { out, io } = capture();
 
-    const code = await main(['new'], { io, service: makeService(r.dir) });
+    const code = await main(['new'], { io, serviceOverride: makeService(r.dir) });
     expect(code).toBe(0);
     expect(out[0]).toMatch(/^created review [a-f0-9-]+ \(feature -> main\)$/);
   });
@@ -86,12 +86,12 @@ describe('main', () => {
     const service = makeService(r.dir);
     const { out, io } = capture();
 
-    expect(await main(['new'], { io, service })).toBe(0);
+    expect(await main(['new'], { io, serviceOverride: service })).toBe(0);
     const id = out[0]!.split(' ')[2]!;
-    expect(await main(['comment', id, '--file', 'a.txt', '--line', '2', '--body', 'fix this'], { io, service })).toBe(0);
+    expect(await main(['comment', id, '--file', 'a.txt', '--line', '2', '--body', 'fix this'], { io, serviceOverride: service })).toBe(0);
     const rootId = out[out.length - 1]!.split(' ')[2]!;
-    expect(await main(['comment', id, '--reply-to', rootId, '--body', 'will do'], { io, service })).toBe(0);
-    expect(await main(['resolve', id, rootId], { io, service })).toBe(0);
+    expect(await main(['comment', id, '--reply-to', rootId, '--body', 'will do'], { io, serviceOverride: service })).toBe(0);
+    expect(await main(['resolve', id, rootId], { io, serviceOverride: service })).toBe(0);
 
     const review = await service.status(id);
     expect(review.comments[0]).toMatchObject({ status: 'resolved', file: 'a.txt', line: 2 });
@@ -106,7 +106,7 @@ describe('main', () => {
     r.git('checkout', '-b', 'feature');
     const { err, io } = capture();
 
-    expect(await main(['comment', 'r1', '--file', 'a.txt', '--line', '1'], { io, service: makeService(r.dir) })).toBe(1);
+    expect(await main(['comment', 'r1', '--file', 'a.txt', '--line', '1'], { io, serviceOverride: makeService(r.dir) })).toBe(1);
     expect(err.join('\n')).toContain('requires --body');
   });
 
@@ -119,7 +119,7 @@ describe('main', () => {
     const { err, io } = capture();
 
     expect(
-      await main(['comment', 'r1', '--file', 'a.txt', '--line', 'abc', '--body', 'nope'], { io, service: makeService(r.dir) }),
+      await main(['comment', 'r1', '--file', 'a.txt', '--line', 'abc', '--body', 'nope'], { io, serviceOverride: makeService(r.dir) }),
     ).toBe(1);
     expect(err.join('\n')).toContain('--line must be a positive integer');
   });
@@ -133,10 +133,10 @@ describe('main', () => {
     const service = makeService(r.dir);
     const { out, io } = capture();
 
-    expect(await main(['new'], { io, service })).toBe(0);
+    expect(await main(['new'], { io, serviceOverride: service })).toBe(0);
     const id = out[0]!.split(' ')[2]!;
-    expect(await main(['approve', id], { io, service })).toBe(0);
-    expect(await main(['list'], { io, service })).toBe(0);
+    expect(await main(['approve', id], { io, serviceOverride: service })).toBe(0);
+    expect(await main(['list'], { io, serviceOverride: service })).toBe(0);
     expect(out.join('\n')).toContain(id);
     expect(await service.status(id)).toMatchObject({ status: 'approved' });
   });
@@ -153,16 +153,16 @@ describe('main', () => {
     const service = makeService(r.dir);
     const { out, io } = capture();
 
-    expect(await main(['new'], { io, service })).toBe(0);
+    expect(await main(['new'], { io, serviceOverride: service })).toBe(0);
     const id = out[0]!.split(' ')[2]!;
-    expect(await main(['approve', id], { io, service })).toBe(0);
+    expect(await main(['approve', id], { io, serviceOverride: service })).toBe(0);
 
     const denied = capture();
-    await main(['merge', id], { io: { ...denied.io, ask: async () => 'n' }, service });
+    await main(['merge', id], { io: { ...denied.io, ask: async () => 'n' }, serviceOverride: service });
     expect(denied.out.join('\n')).toContain('merge aborted');
 
     const yes = capture();
-    expect(await main(['merge', id, '--yes', '--cleanup'], { io: yes.io, service })).toBe(0);
+    expect(await main(['merge', id, '--yes', '--cleanup'], { io: yes.io, serviceOverride: service })).toBe(0);
     expect(yes.out.join('\n')).toContain('merged');
     expect(r.git('symbolic-ref', '--short', 'HEAD')).toBe('main');
     expect(r.git('branch', '--list', 'feature')).toBe('');
@@ -178,10 +178,10 @@ describe('main', () => {
     const service = makeService(r.dir);
     const { out, io } = capture();
 
-    expect(await main(['new'], { io, service })).toBe(0);
+    expect(await main(['new'], { io, serviceOverride: service })).toBe(0);
     const id = out[0]!.split(' ')[2]!;
     const target = path.join(r.dir, 'REVIEW-out.md');
-    expect(await main(['export', id, '--out', target], { io, service })).toBe(0);
+    expect(await main(['export', id, '--out', target], { io, serviceOverride: service })).toBe(0);
     expect(existsSync(target)).toBe(true);
     expect(readFileSync(target, 'utf8')).toContain('# Local Pull Request');
   });
@@ -197,7 +197,7 @@ describe('main', () => {
     const service = makeService(r.dir);
     const { io } = capture();
 
-    expect(await main(['skill', 'install'], { io, service, cwd: r.dir })).toBe(0);
+    expect(await main(['skill', 'install'], { io, serviceOverride: service, cwd: r.dir })).toBe(0);
     const file = path.join(r.dir, '.lopr', 'skills', 'apply-review.md');
     expect(existsSync(file)).toBe(true);
     expect(readFileSync(file, 'utf8')).toContain('# apply-review');
@@ -206,14 +206,14 @@ describe('main', () => {
 
     const denied = capture();
     expect(
-      await main(['skill', 'install', '--path', '.agents'], { io: { ...denied.io, ask: async () => 'n' }, service, cwd: r.dir }),
+      await main(['skill', 'install', '--path', '.agents'], { io: { ...denied.io, ask: async () => 'n' }, serviceOverride: service, cwd: r.dir }),
     ).toBe(0);
     expect(denied.out.join('\n')).toContain('cancelled');
     expect(existsSync(path.join(r.dir, '.agents', 'apply-review.md'))).toBe(false);
 
     const reinstalled = capture();
     expect(
-      await main(['skill', 'install', '--path', '.agents'], { io: { ...reinstalled.io, ask: async () => 'y' }, service, cwd: r.dir }),
+      await main(['skill', 'install', '--path', '.agents'], { io: { ...reinstalled.io, ask: async () => 'y' }, serviceOverride: service, cwd: r.dir }),
     ).toBe(0);
     expect(existsSync(path.join(r.dir, '.agents', 'apply-review.md'))).toBe(true);
   });
