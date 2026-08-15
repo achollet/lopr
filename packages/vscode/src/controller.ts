@@ -4,7 +4,6 @@ import type { CodeSuggestion, Review, ReviewComment, ReviewService } from '@lopr
 import { applySuggestion } from './applySuggestion.js';
 import { diffViewFiles, type DiffViewFile } from './diffView.js';
 
-/** State snapshot the webview renders. */
 export interface ReviewState {
   id: string;
   baseBranch: string;
@@ -47,7 +46,6 @@ function stateOf(review: Review): ReviewState {
   };
 }
 
-/** Pure of the vscode namespace: routes webview messages to the service. */
 export class ReviewController {
   readonly #service: ReviewService;
   readonly #repoRoot: string;
@@ -70,7 +68,7 @@ export class ReviewController {
       case 'init': {
         const review =
           message.reviewId === '(current branch)'
-            ? await this.#service.resolveCurrent()
+            ? await this.#service.resolveOrCreateCurrent()
             : await this.#service.status(message.reviewId);
         const diff = await this.#service.diffForReview(review.id);
         return { type: 'init', payload: { review: stateOf(review), diff: diffViewFiles(diff.files) } };

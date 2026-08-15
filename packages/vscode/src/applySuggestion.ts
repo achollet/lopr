@@ -14,11 +14,6 @@ export class ApplySuggestionError extends Error {
   }
 }
 
-/**
- * Apply an inline suggestion to the working tree file at `repoRoot`/`file`.
- * The replacement is anchored on the suggestion's oldText, preferring the
- * occurrence nearest the comment line when `line` is given.
- */
 export async function applySuggestion(
   repoRoot: string,
   file: string,
