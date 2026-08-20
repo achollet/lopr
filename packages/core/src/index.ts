@@ -1,4 +1,4 @@
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 export { getThreeDotDiff, getDiffBetween, newSideFileProvider, resolveBranches } from './diff.js';
 export type { BranchResolution, DiffBetweenOptions, DiffOptions } from './diff.js';
