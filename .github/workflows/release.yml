@@ -41,7 +41,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "docs(changelog): ${GITHUB_REF_NAME}" && git push
+          if ! git diff --cached --quiet; then
+            git commit -m "docs(changelog): ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          fi
 
       - uses: softprops/action-gh-release@v2
         with:
