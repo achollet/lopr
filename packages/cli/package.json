@@ -1,6 +1,6 @@
 {
   "name": "lopr",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Local Pull Request — the lopr CLI",
   "type": "module",
   "main": "./dist/cli.js",

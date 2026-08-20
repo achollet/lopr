@@ -1,6 +1,6 @@
 {
   "name": "@lopr/tui",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Local Pull Request — ink TUI surface (minimal: diff / merge / export)",
   "type": "module",
   "main": "./dist/index.js",
