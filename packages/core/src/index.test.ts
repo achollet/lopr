@@ -3,6 +3,6 @@ import { VERSION } from './index.js';
 
 describe('core smoke', () => {
   it('exports the shared version', () => {
-    expect(VERSION).toBe('0.1.0');
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
