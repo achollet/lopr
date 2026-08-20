@@ -22,7 +22,8 @@ export function webviewHtml(): string {
   button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
   button:disabled { opacity: 0.5; cursor: default; }
   main { display: flex; height: calc(100vh - 46px); }
-  aside { width: 260px; border-right: 1px solid var(--vscode-panel-border); overflow: auto; }
+  aside { width: 260px; border-right: 1px solid var(--vscode-panel-border); overflow: auto; transition: width 0.15s, min-width 0.15s; min-width: 260px; }
+  aside.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
   .file { padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
   .file.active { background: var(--vscode-list-activeSelectionBackground); }
   .file:hover:not(.active) { background: var(--vscode-list-hoverBackground); }
@@ -48,8 +49,23 @@ export function webviewHtml(): string {
   .row { display: flex; gap: 6px; margin-top: 4px; }
   .notice { position: fixed; bottom: 8px; right: 12px; padding: 6px 12px; background: var(--vscode-notifications-background); border-radius: 3px; }
   .notice.error { color: #f48771; }
-  .suggestion { font-family: var(--vscode-editor-font-family); font-size: 11px; background: var(--vscode-editor-background); padding: 4px; margin: 4px 0; }
-  code { font-family: var(--vscode-editor-font-family); }
+  .folder { padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: var(--vscode-descriptionForeground); font-weight: 600; user-select: none; }
+  .folder:hover { background: var(--vscode-list-hoverBackground); }
+  .folder .arrow { transition: transform 0.1s; display: inline-block; width: 1em; text-align: center; }
+  .folder .arrow.collapsed { transform: rotate(-90deg); }
+  .folder-children { display: block; }
+  .folder-children.hidden { display: none; }
+  .view-toggle { display: flex; gap: 2px; background: var(--vscode-button-secondaryBackground); border-radius: 3px; padding: 2px; }
+  .view-toggle button { padding: 2px 8px; border-radius: 2px; font-size: 11px; }
+  .view-toggle button.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  .side-by-side { display: flex; flex: 1; overflow: hidden; }
+  .side-by-side .pane { flex: 1; overflow: auto; border-right: 1px solid var(--vscode-panel-border); }
+  .side-by-side .pane:last-child { border-right: none; }
+  .side-by-side .pane-header { padding: 4px 10px; font-size: 11px; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
+  .side-by-side .diff-line { display: flex; }
+  .side-by-side .diff-line .num { width: 3.2em; }
+  .suggestion { font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size, 11px); background: var(--vscode-editor-background); padding: 4px; margin: 4px 0; }
+  code { font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
 </style>
 </head>
 <body>
@@ -60,6 +76,11 @@ export function webviewHtml(): string {
   <span id="author" style="opacity:0.7"></span>
   <span id="conflicts"></span>
   <span class="spacer"></span>
+  <button id="btn-toggle-files" class="secondary" title="Toggle file list">Files</button>
+  <div class="view-toggle" id="view-toggle">
+    <button id="btn-unified" class="active" title="Unified diff view">Unified</button>
+    <button id="btn-side-by-side" title="Side by side diff view">Split</button>
+  </div>
   <button id="btn-approve" title="Approve the review">Approve</button>
   <button id="btn-request" class="secondary" title="Request changes">Request changes</button>
   <button id="btn-merge" title="Merge into base">Merge</button>
@@ -77,7 +98,7 @@ export function webviewHtml(): string {
 <script>
 (function () {
   const vscode = acquireVsCodeApi();
-  const state = { review: null, diff: [], selectedFile: null, selectedLine: null, commentBody: '' };
+  const state = { review: null, diff: [], selectedFile: null, selectedLine: null, commentBody: '', viewMode: 'unified', collapsedFolders: new Set(), filesCollapsed: false };
   const $ = (id) => document.getElementById(id);
 
   function post(message) { vscode.postMessage(message); }
@@ -108,16 +129,70 @@ export function webviewHtml(): string {
       list.textContent = 'no changes';
       return;
     }
-    for (const file of state.diff) {
-      const el = document.createElement('div');
-      el.className = 'file' + (file.path === state.selectedFile ? ' active' : '');
-      el.innerHTML = '<span>' + esc(file.path) + '</span><span class="meta">+' + file.additions + ' -' + file.deletions + '</span>';
-      el.onclick = () => { state.selectedFile = file.path; state.selectedLine = null; render(); };
-      list.appendChild(el);
+    const tree = buildFileTree(state.diff);
+    renderTreeNode(list, tree, '', 0);
+  }
+
+  function buildFileTree(files) {
+    const root = {};
+    for (const file of files) {
+      const parts = file.path.split('/');
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!node[parts[i]]) node[parts[i]] = {};
+        node = node[parts[i]];
+      }
+      node[parts[parts.length - 1]] = file;
+    }
+    return root;
+  }
+
+  function renderTreeNode(container, node, prefix, depth) {
+    const keys = Object.keys(node).sort((a, b) => {
+      const aIsDir = typeof node[a] !== 'object' || !node[a].path;
+      const bIsDir = typeof node[b] !== 'object' || !node[b].path;
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+      return a.localeCompare(b);
+    });
+    for (const key of keys) {
+      const value = node[key];
+      if (value.path) {
+        const file = value;
+        const el = document.createElement('div');
+        el.className = 'file' + (file.path === state.selectedFile ? ' active' : '');
+        el.style.paddingLeft = (10 + depth * 16) + 'px';
+        el.innerHTML = '<span>' + esc(key) + '</span><span class="meta">+' + file.additions + ' -' + file.deletions + '</span>';
+        el.onclick = () => { state.selectedFile = file.path; state.selectedLine = null; render(); };
+        container.appendChild(el);
+      } else {
+        const folderPath = prefix ? prefix + '/' + key : key;
+        const isCollapsed = state.collapsedFolders.has(folderPath);
+        const folder = document.createElement('div');
+        folder.className = 'folder';
+        folder.style.paddingLeft = (10 + depth * 16) + 'px';
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow' + (isCollapsed ? ' collapsed' : '');
+        arrow.textContent = '\u25BC';
+        folder.appendChild(arrow);
+        folder.appendChild(document.createTextNode(key));
+        folder.onclick = () => {
+          if (state.collapsedFolders.has(folderPath)) state.collapsedFolders.delete(folderPath);
+          else state.collapsedFolders.add(folderPath);
+          render();
+        };
+        container.appendChild(folder);
+        if (!isCollapsed) {
+          const children = document.createElement('div');
+          children.className = 'folder-children';
+          renderTreeNode(children, value, folderPath, depth + 1);
+          container.appendChild(children);
+        }
+      }
     }
   }
 
   function renderDiff() {
+    if (state.viewMode === 'side-by-side') { renderDiffSideBySide(); return; }
     const root = $('diff');
     const file = state.diff.find((f) => f.path === state.selectedFile);
     if (!file) { root.className = 'empty'; root.textContent = state.diff.length ? 'select a file' : 'no changes to review'; return; }
@@ -148,6 +223,68 @@ export function webviewHtml(): string {
       }
       root.appendChild(el);
     }
+  }
+
+  function renderDiffSideBySide() {
+    const root = $('diff');
+    const file = state.diff.find((f) => f.path === state.selectedFile);
+    if (!file) { root.className = 'empty'; root.textContent = state.diff.length ? 'select a file' : 'no changes to review'; return; }
+    root.className = 'side-by-side';
+    root.textContent = '';
+    if (file.binary) { root.className = 'empty'; root.textContent = 'binary file'; return; }
+    const leftPane = document.createElement('div');
+    leftPane.className = 'pane';
+    const leftHeader = document.createElement('div');
+    leftHeader.className = 'pane-header';
+    leftHeader.textContent = 'old';
+    leftPane.appendChild(leftHeader);
+    const rightPane = document.createElement('div');
+    rightPane.className = 'pane';
+    const rightHeader = document.createElement('div');
+    rightHeader.className = 'pane-header';
+    rightHeader.textContent = 'new';
+    rightPane.appendChild(rightHeader);
+    for (const line of file.lines) {
+      if (line.kind === 'context') {
+        leftPane.appendChild(sideBySideLine(line, 'old'));
+        rightPane.appendChild(sideBySideLine(line, 'new'));
+      } else if (line.kind === 'removed') {
+        leftPane.appendChild(sideBySideLine(line, 'old'));
+        const empty = document.createElement('div');
+        empty.className = 'diff-line';
+        empty.style.height = '1.5em';
+        leftPane.appendChild(empty);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'diff-line';
+        empty.style.height = '1.5em';
+        rightPane.appendChild(empty);
+        rightPane.appendChild(sideBySideLine(line, 'new'));
+      }
+    }
+    root.appendChild(leftPane);
+    root.appendChild(rightPane);
+  }
+
+  function sideBySideLine(line, side) {
+    const el = document.createElement('div');
+    el.className = 'diff-line ' + line.kind;
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = side === 'old' ? String(line.oldLine ?? '') : line.newLine !== undefined ? String(line.newLine) : '';
+    const sign = document.createElement('span');
+    sign.className = 'sign';
+    sign.textContent = line.kind === 'added' ? '+' : line.kind === 'removed' ? '-' : ' ';
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = line.text || ' ';
+    el.appendChild(num);
+    el.appendChild(sign);
+    el.appendChild(text);
+    if (line.newLine !== undefined) {
+      el.onclick = () => { state.selectedLine = line.newLine; render(); };
+    }
+    return el;
   }
 
   function renderThreads() {
@@ -272,6 +409,9 @@ export function webviewHtml(): string {
     post({ type: 'merge', reviewId: state.review.id, cleanup: false });
   };
   $('btn-export').onclick = () => post({ type: 'export', reviewId: state.review.id });
+  $('btn-unified').onclick = () => { state.viewMode = 'unified'; $('btn-unified').classList.add('active'); $('btn-side-by-side').classList.remove('active'); render(); };
+  $('btn-side-by-side').onclick = () => { state.viewMode = 'side-by-side'; $('btn-side-by-side').classList.add('active'); $('btn-unified').classList.remove('active'); render(); };
+  $('btn-toggle-files').onclick = () => { state.filesCollapsed = !state.filesCollapsed; $('files').classList.toggle('collapsed', state.filesCollapsed); };
 
   window.addEventListener('message', (event) => {
     const message = event.data;
