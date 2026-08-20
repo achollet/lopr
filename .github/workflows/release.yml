@@ -36,17 +36,10 @@ jobs:
           pnpm exec vsce package --out "../../dist/lopr-${GITHUB_REF_NAME#v}.vsix"
 
       - name: Generate changelog
-        run: |
-          npx conventional-changelog-cli -p angular -i CHANGELOG.md -s -r 0
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          if ! git diff --cached --quiet; then
-            git commit -m "docs(changelog): ${GITHUB_REF_NAME}"
-            git push origin HEAD:main
-          fi
+        run: npx conventional-changelog-cli -p angular -i CHANGELOG.md -s -r 0
 
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/lopr-*.vsix
+          body_path: CHANGELOG.md
           generate_release_notes: true
