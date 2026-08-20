@@ -1,7 +1,7 @@
 {
   "name": "lopr-vscode",
   "displayName": "lopr — Local Pull Request",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local Pull Request — VS Code extension (main review surface)",
   "main": "./dist/extension.js",
   "publisher": "lopr",
