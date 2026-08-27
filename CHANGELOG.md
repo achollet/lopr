@@ -1,3 +1,10 @@
+## [0.2.3](https://github.com/achollet/lopr/compare/v0.2.2...v0.2.3) (2026-08-27)
+
+
+### Features
+
+* **vscode:** diff inherits editor font settings; comment composer scope (line/file/branch) and colourized actions ([441a4dd](https://github.com/achollet/lopr/commit/441a4dd8248b8868423811b68fa2b16a89d3c47b))
+
 ## [0.2.2](https://github.com/achollet/lopr/compare/v0.2.1...v0.2.2) (2026-08-20)
 
 
