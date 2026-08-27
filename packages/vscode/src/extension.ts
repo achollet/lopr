@@ -4,7 +4,7 @@ import { GitCli, JsonFileReviewStore, ReviewService } from '@lopr/core';
 import type { FileDiff } from '@lopr/core';
 import { flattenHunks, parseDiffBody } from '@lopr/core';
 import { ReviewController } from './controller.js';
-import { webviewHtml } from './webview.js';
+import { webviewHtml, type WebviewFontOptions } from './webview.js';
 
 export const EXTENSION_ID = 'lopr';
 
@@ -48,7 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.ViewColumn.Beside,
         { enableScripts: true, localResourceRoots: [] },
       );
-      panel.webview.html = webviewHtml();
+      panel.webview.html = webviewHtml(editorFontOptions());
       panel.webview.onDidReceiveMessage(
         (message) => {
           void (async () => {
@@ -142,4 +142,14 @@ export function changedLineRanges(files: FileDiff[], absolutePath: string, repoR
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function editorFontOptions(): WebviewFontOptions {
+  const config = vscode.workspace.getConfiguration('editor');
+  return {
+    fontFamily: config.get<string>('fontFamily') ?? 'monospace',
+    fontSize: config.get<number>('fontSize') ?? 14,
+    lineHeight: config.get<number | null>('lineHeight', null) ?? undefined,
+    fontLigatures: config.get<boolean | string>('fontLigatures', false) !== false,
+  };
 }

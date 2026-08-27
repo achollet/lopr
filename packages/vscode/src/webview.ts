@@ -1,4 +1,20 @@
-export function webviewHtml(): string {
+export interface WebviewFontOptions {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight?: number;
+  fontLigatures?: boolean;
+}
+
+export function webviewHtml(font?: WebviewFontOptions): string {
+  const css = font
+    ? `:root {
+  color-scheme: dark;
+  --lopr-font-family: ${font.fontFamily};
+  --lopr-font-size: ${font.fontSize}px;
+  --lopr-line-height: ${font.lineHeight ?? font.fontSize * 1.5}px;
+  --lopr-font-ligatures: ${font.fontLigatures ? 'normal' : 'none'};
+}`
+    : ':root { color-scheme: dark; }';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +23,7 @@ export function webviewHtml(): string {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'unsafe-inline';" />
 <title>lopr</title>
 <style>
-  :root { color-scheme: dark; }
+  ${css}
   * { box-sizing: border-box; }
   body { margin: 0; font-family: var(--vscode-font-family); font-size: 13px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
   header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
@@ -21,6 +37,12 @@ export function webviewHtml(): string {
   button:hover { background: var(--vscode-button-hoverBackground); }
   button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
   button:disabled { opacity: 0.5; cursor: default; }
+  button.approve { background: #2d7a4d; color: #fff; }
+  button.approve:hover { background: #256b43; }
+  button.request-changes { background: #b89500; color: #1a1a1a; }
+  button.request-changes:hover { background: #a48500; }
+  button.neutral { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  button.neutral:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground)); }
   main { display: flex; height: calc(100vh - 46px); }
   aside { width: 260px; border-right: 1px solid var(--vscode-panel-border); overflow: auto; transition: width 0.15s, min-width 0.15s; min-width: 260px; }
   aside.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
@@ -28,7 +50,7 @@ export function webviewHtml(): string {
   .file.active { background: var(--vscode-list-activeSelectionBackground); }
   .file:hover:not(.active) { background: var(--vscode-list-hoverBackground); }
   .file .meta { color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; }
-  section.diff { flex: 1; overflow: auto; font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size, 12px); }
+  section.diff { flex: 1; overflow: auto; font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size, 12px)); line-height: var(--lopr-line-height, normal); font-variant-ligatures: var(--lopr-font-ligatures, normal); }
   .empty { padding: 20px; color: var(--vscode-descriptionForeground); }
   .diff-line { display: flex; white-space: pre; cursor: pointer; }
   .diff-line:hover { background: var(--vscode-list-hoverBackground); }
@@ -46,6 +68,7 @@ export function webviewHtml(): string {
   .thread-body { padding: 4px 8px; white-space: pre-wrap; }
   .reply { padding: 4px 8px; border-top: 1px solid var(--vscode-panel-border); }
   textarea { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); border-radius: 3px; padding: 4px; resize: vertical; }
+  select.scope { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); border-radius: 3px; padding: 3px 4px; }
   .row { display: flex; gap: 6px; margin-top: 4px; }
   .notice { position: fixed; bottom: 8px; right: 12px; padding: 6px 12px; background: var(--vscode-notifications-background); border-radius: 3px; }
   .notice.error { color: #f48771; }
@@ -64,8 +87,8 @@ export function webviewHtml(): string {
   .side-by-side .pane-header { padding: 4px 10px; font-size: 11px; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
   .side-by-side .diff-line { display: flex; }
   .side-by-side .diff-line .num { width: 3.2em; }
-  .suggestion { font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size, 11px); background: var(--vscode-editor-background); padding: 4px; margin: 4px 0; }
-  code { font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
+  .suggestion { font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size, 11px)); font-variant-ligatures: var(--lopr-font-ligatures, normal); background: var(--vscode-editor-background); padding: 4px; margin: 4px 0; }
+  code { font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size)); font-variant-ligatures: var(--lopr-font-ligatures, normal); }
 </style>
 </head>
 <body>
@@ -81,9 +104,9 @@ export function webviewHtml(): string {
     <button id="btn-unified" class="active" title="Unified diff view">Unified</button>
     <button id="btn-side-by-side" title="Side by side diff view">Split</button>
   </div>
-  <button id="btn-approve" title="Approve the review">Approve</button>
-  <button id="btn-request" class="secondary" title="Request changes">Request changes</button>
-  <button id="btn-merge" title="Merge into base">Merge</button>
+  <button id="btn-approve" class="approve" title="Approve the review">Approve</button>
+  <button id="btn-request" class="request-changes" title="Request changes">Request changes</button>
+  <button id="btn-merge" class="neutral" title="Merge into base">Merge</button>
   <button id="btn-export" class="secondary" title="Write REVIEW.md">Export</button>
 </header>
 <main>
@@ -98,7 +121,7 @@ export function webviewHtml(): string {
 <script>
 (function () {
   const vscode = acquireVsCodeApi();
-  const state = { review: null, diff: [], selectedFile: null, selectedLine: null, commentBody: '', viewMode: 'unified', collapsedFolders: new Set(), filesCollapsed: false };
+  const state = { review: null, diff: [], selectedFile: null, selectedLine: null, commentBody: '', scope: 'line', viewMode: 'unified', collapsedFolders: new Set(), filesCollapsed: false };
   const $ = (id) => document.getElementById(id);
 
   function post(message) { vscode.postMessage(message); }
@@ -191,6 +214,12 @@ export function webviewHtml(): string {
     }
   }
 
+  function selectLine(newLine) {
+    if (state.selectedLine === newLine) return;
+    state.selectedLine = newLine;
+    render();
+  }
+
   function renderDiff() {
     if (state.viewMode === 'side-by-side') { renderDiffSideBySide(); return; }
     const root = $('diff');
@@ -219,7 +248,8 @@ export function webviewHtml(): string {
       el.appendChild(sign);
       el.appendChild(text);
       if (line.newLine !== undefined) {
-        el.onclick = () => { state.selectedLine = line.newLine; render(); };
+        el.onclick = () => selectLine(line.newLine);
+        sign.onclick = (e) => { e.stopPropagation(); selectLine(line.newLine); };
       }
       root.appendChild(el);
     }
@@ -252,12 +282,12 @@ export function webviewHtml(): string {
         leftPane.appendChild(sideBySideLine(line, 'old'));
         const empty = document.createElement('div');
         empty.className = 'diff-line';
-        empty.style.height = '1.5em';
+        empty.style.height = 'var(--lopr-line-height, 1.5em)';
         leftPane.appendChild(empty);
       } else {
         const empty = document.createElement('div');
         empty.className = 'diff-line';
-        empty.style.height = '1.5em';
+        empty.style.height = 'var(--lopr-line-height, 1.5em)';
         rightPane.appendChild(empty);
         rightPane.appendChild(sideBySideLine(line, 'new'));
       }
@@ -282,7 +312,8 @@ export function webviewHtml(): string {
     el.appendChild(sign);
     el.appendChild(text);
     if (line.newLine !== undefined) {
-      el.onclick = () => { state.selectedLine = line.newLine; render(); };
+      el.onclick = () => selectLine(line.newLine);
+      sign.onclick = (e) => { e.stopPropagation(); selectLine(line.newLine); };
     }
     return el;
   }
@@ -291,32 +322,61 @@ export function webviewHtml(): string {
     const root = $('threads');
     root.textContent = '';
     if (!state.review) return;
-    const roots = state.review.comments.filter((c) => !c.parentId && c.file === state.selectedFile);
+    const roots = state.review.comments.filter((c) => !c.parentId && (c.file === state.selectedFile || c.file === null));
     if (!roots.length) { root.textContent = 'no threads on this file'; }
     for (const rootComment of roots) {
       root.appendChild(threadEl(rootComment));
     }
     const composer = document.createElement('div');
     composer.className = 'thread';
-    composer.innerHTML = '<div class="thread-head">new comment' + (state.selectedLine ? ' · line ' + state.selectedLine : ' · select a diff line') + '</div>';
+    const scopeRow = document.createElement('div');
+    scopeRow.className = 'row';
+    const scopeSel = document.createElement('select');
+    scopeSel.className = 'scope';
+    const scopes = [
+      ['line', 'Line' + (state.selectedLine ? ' ' + state.selectedLine : '')],
+      ['file', 'File' + (state.selectedFile ? ' ' + state.selectedFile : '')],
+      ['branch', 'Whole branch'],
+    ];
+    for (const [value, label] of scopes) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      scopeSel.appendChild(opt);
+    }
+    scopeSel.value = state.scope;
+    scopeSel.onchange = () => { state.scope = scopeSel.value; render(); };
+    scopeRow.appendChild(scopeSel);
+    composer.appendChild(scopeRow);
     const area = document.createElement('textarea');
-    area.placeholder = 'leave a comment on the selected line…';
+    area.placeholder = 'leave a comment…';
     area.value = state.commentBody;
     area.oninput = () => { state.commentBody = area.value; };
     composer.appendChild(area);
     const row = document.createElement('div');
     row.className = 'row';
     const btn = document.createElement('button');
+    btn.className = 'neutral';
     btn.textContent = 'Comment';
-    btn.disabled = !state.selectedLine || !area.value.trim();
+    const ready = state.scope !== 'line' || state.selectedLine !== null;
+    btn.disabled = !ready || !area.value.trim();
     btn.onclick = () => {
-      post({ type: 'comment', reviewId: state.review.id, file: state.selectedFile, line: state.selectedLine, body: area.value.trim() });
+      const file = state.scope === 'branch' ? undefined : state.selectedFile;
+      const line = state.scope === 'line' ? state.selectedLine : undefined;
+      post({ type: 'comment', reviewId: state.review.id, file, line, body: area.value.trim() });
       area.value = '';
       state.commentBody = '';
+      render();
     };
     row.appendChild(btn);
     composer.appendChild(row);
     root.appendChild(composer);
+  }
+
+  function locationOf(comment) {
+    if (comment.file !== null && comment.line !== null) return comment.file + ':' + comment.line;
+    if (comment.file !== null) return comment.file;
+    return 'branch';
   }
 
   function threadEl(comment) {
@@ -328,7 +388,7 @@ export function webviewHtml(): string {
     status.className = comment.status === 'resolved' ? 'resolved' : '';
     status.textContent = comment.status === 'resolved' ? '[resolved]' : '[open]';
     head.appendChild(status);
-    head.appendChild(document.createTextNode(comment.file + ':' + comment.line + ' · ' + comment.author + ' · ' + comment.createdAt));
+    head.appendChild(document.createTextNode(locationOf(comment) + ' · ' + comment.author + ' · ' + comment.createdAt));
     box.appendChild(head);
     const body = document.createElement('div');
     body.className = 'thread-body';

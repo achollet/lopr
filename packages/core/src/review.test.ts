@@ -86,15 +86,19 @@ describe('addComment', () => {
     expect(() => addComment(baseReview(), { ...root, body: ' \n ' })).toThrow('comment body is required');
   });
 
-  it('rejects a root comment without a file', () => {
-    const { body, line, origin, context } = root;
-    expect(() => addComment(baseReview(), { body, line, origin, context })).toThrow('requires a file');
+  it('accepts a file-level comment without a line', () => {
+    const review = addComment(baseReview(), { body: 'nit: naming', file: 'src/a.ts' });
+    expect(review.comments[0]).toMatchObject({ file: 'src/a.ts', line: null, origin: null, context: [] });
+  });
+
+  it('accepts a branch-level comment without a file', () => {
+    const review = addComment(baseReview(), { body: 'lgtm overall' });
+    expect(review.comments[0]).toMatchObject({ file: null, line: null, origin: null, context: [] });
   });
 
   it('rejects a root comment with an invalid line', () => {
     expect(() => addComment(baseReview(), { ...root, line: 0 })).toThrow('positive line');
     expect(() => addComment(baseReview(), { ...root, line: 1.5 })).toThrow('positive line');
-    expect(() => addComment(baseReview(), { ...root, line: null })).toThrow('positive line');
   });
 
   it('rejects a root comment without an origin', () => {

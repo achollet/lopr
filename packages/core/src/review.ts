@@ -167,9 +167,13 @@ export function addComment(review: Review, input: NewComment): Review {
     const parent = review.comments.find((c) => c.id === input.parentId);
     if (!parent) throw new ReviewError(`unknown parent comment: ${input.parentId}`);
     comment.parentId = parent.id;
+  } else if (input.file === undefined || input.file.trim() === '') {
+    // branch-level comment: no file, no line
+  } else if (input.line === undefined || input.line === null) {
+    // file-level comment: no line anchor
+    comment.file = input.file.trim();
   } else {
-    if (input.file === undefined || input.file.trim() === '') throw new ReviewError('root comment requires a file');
-    if (input.line === null || input.line === undefined || !Number.isInteger(input.line) || input.line < 1) {
+    if (!Number.isInteger(input.line) || input.line < 1) {
       throw new ReviewError('root comment requires a positive line');
     }
     if (input.origin === undefined || input.origin.sha.trim() === '' || !Number.isInteger(input.origin.line) || input.origin.line < 1) {

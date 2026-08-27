@@ -23,7 +23,11 @@ function suggestion(comment: ReviewComment): string | null {
 function renderThread(comment: ReviewComment, replies: ReviewComment[]): string {
   const marker = comment.status === 'resolved' ? ' [resolved]' : '';
   const location =
-    comment.file !== null && comment.line !== null ? `${escapeCode(comment.file)}:${comment.line}` : escapeCode(comment.id);
+    comment.file !== null && comment.line !== null
+      ? `${escapeCode(comment.file)}:${comment.line}`
+      : comment.file !== null
+        ? escapeCode(comment.file)
+        : 'branch';
   const parts = [`### \`${location}\` — ${comment.id}${marker}`, '', snippet(comment), '', comment.body];
   const suggestionBlock = suggestion(comment);
   if (suggestionBlock !== null) parts.push('', suggestionBlock);

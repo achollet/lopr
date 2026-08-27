@@ -111,9 +111,18 @@ export class ReviewService {
       await this.#store.save(updated);
       return updated;
     }
-    if (input.file === undefined || input.line === undefined) {
-      throw new ReviewError('root comment requires a file and a line');
+    if (input.line === undefined) {
+      const updated = addComment(review, {
+        parentId: input.parentId,
+        file: input.file,
+        body: input.body,
+        author: this.#author,
+        now: this.#now,
+      });
+      await this.#store.save(updated);
+      return updated;
     }
+    if (input.file === undefined) throw new ReviewError('root comment requires a file');
     const head = await this.#headSha(review.headBranch);
     const lines = await newSideFileProvider(this.#gateway, head, this.#cwd)(input.file);
     if (lines === null) throw new ReviewError(`file not found at ${head}: ${input.file}`);
