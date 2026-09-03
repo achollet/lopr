@@ -1,8 +1,29 @@
 export interface WebviewFontOptions {
   fontFamily: string;
   fontSize: number;
+  /** Raw `editor.lineHeight`: 0 computes from the font size, values below 8 are a multiplier. */
   lineHeight?: number;
   fontLigatures?: boolean;
+}
+
+const GOLDEN_LINE_HEIGHT_RATIO = 1.5;
+const MIN_LINE_HEIGHT = 8;
+const MAX_LINE_HEIGHT = 150;
+const DEFAULT_FONT_SIZE = 14;
+
+/**
+ * Resolves `editor.lineHeight` to pixels the way the VS Code editor does: 0 (its
+ * default) means "compute from the font size", anything under 8 is a multiplier
+ * rather than a pixel value.
+ */
+export function resolveLineHeight(lineHeight: number | undefined, fontSize: number): number {
+  const size = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : DEFAULT_FONT_SIZE;
+  const raw = Number.isFinite(lineHeight) ? (lineHeight as number) : 0;
+  let resolved: number;
+  if (raw <= 0) resolved = GOLDEN_LINE_HEIGHT_RATIO * size;
+  else if (raw < MIN_LINE_HEIGHT) resolved = raw * size;
+  else resolved = raw;
+  return Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, Math.round(resolved)));
 }
 
 export function webviewHtml(font?: WebviewFontOptions): string {
@@ -11,7 +32,7 @@ export function webviewHtml(font?: WebviewFontOptions): string {
   color-scheme: dark;
   --lopr-font-family: ${font.fontFamily};
   --lopr-font-size: ${font.fontSize}px;
-  --lopr-line-height: ${font.lineHeight ?? font.fontSize * 1.5}px;
+  --lopr-line-height: ${resolveLineHeight(font.lineHeight, font.fontSize)}px;
   --lopr-font-ligatures: ${font.fontLigatures ? 'normal' : 'none'};
 }`
     : ':root { color-scheme: dark; }';
@@ -25,8 +46,9 @@ export function webviewHtml(font?: WebviewFontOptions): string {
 <style>
   ${css}
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: var(--vscode-font-family); font-size: 13px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
-  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: var(--vscode-font-family); font-size: 13px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); display: flex; flex-direction: column; overflow: hidden; }
+  header { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); flex-wrap: wrap; }
   header .spacer { flex: 1; }
   .badge { padding: 2px 8px; border-radius: 10px; font-weight: 600; }
   .badge.approved { background: #2d7a4d33; color: #4ec97c; }
@@ -43,16 +65,18 @@ export function webviewHtml(font?: WebviewFontOptions): string {
   button.request-changes:hover { background: #a48500; }
   button.neutral { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
   button.neutral:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground)); }
-  main { display: flex; height: calc(100vh - 46px); }
-  aside { width: 260px; border-right: 1px solid var(--vscode-panel-border); overflow: auto; transition: width 0.15s, min-width 0.15s; min-width: 260px; }
+  main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+  aside { flex: none; width: 260px; border-right: 1px solid var(--vscode-panel-border); overflow: auto; transition: width 0.15s, min-width 0.15s; min-width: 260px; }
   aside.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
   .file { padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
   .file.active { background: var(--vscode-list-activeSelectionBackground); }
   .file:hover:not(.active) { background: var(--vscode-list-hoverBackground); }
   .file .meta { color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; }
-  section.diff { flex: 1; overflow: auto; font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size, 12px)); line-height: var(--lopr-line-height, normal); font-variant-ligatures: var(--lopr-font-ligatures, normal); }
+  section.diff { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size, 12px)); line-height: var(--lopr-line-height, 1.5em); font-variant-ligatures: var(--lopr-font-ligatures, normal); }
+  #diff { flex: 1; min-height: 0; overflow: auto; }
   .empty { padding: 20px; color: var(--vscode-descriptionForeground); }
-  .diff-line { display: flex; white-space: pre; cursor: pointer; }
+  .diff-line { display: flex; white-space: pre; cursor: pointer; min-height: var(--lopr-line-height, 1.5em); }
+  .diff-line.spacer { cursor: default; background: var(--vscode-diffEditor-unchangedRegionBackground, transparent); }
   .diff-line:hover { background: var(--vscode-list-hoverBackground); }
   .diff-line.selected { background: var(--vscode-editor-selectionBackground); }
   .diff-line.added { background: #1b5e2033; }
@@ -81,10 +105,10 @@ export function webviewHtml(font?: WebviewFontOptions): string {
   .view-toggle { display: flex; gap: 2px; background: var(--vscode-button-secondaryBackground); border-radius: 3px; padding: 2px; }
   .view-toggle button { padding: 2px 8px; border-radius: 2px; font-size: 11px; }
   .view-toggle button.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-  .side-by-side { display: flex; flex: 1; overflow: hidden; }
-  .side-by-side .pane { flex: 1; overflow: auto; border-right: 1px solid var(--vscode-panel-border); }
+  #diff.side-by-side { display: flex; flex-direction: row; overflow: hidden; }
+  .side-by-side .pane { flex: 1; min-width: 0; overflow: auto; border-right: 1px solid var(--vscode-panel-border); }
   .side-by-side .pane:last-child { border-right: none; }
-  .side-by-side .pane-header { padding: 4px 10px; font-size: 11px; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
+  .side-by-side .pane-header { position: sticky; top: 0; z-index: 1; padding: 4px 10px; font-size: 11px; line-height: normal; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
   .side-by-side .diff-line { display: flex; }
   .side-by-side .diff-line .num { width: 3.2em; }
   .suggestion { font-family: var(--lopr-font-family, var(--vscode-editor-font-family)); font-size: var(--lopr-font-size, var(--vscode-editor-font-size, 11px)); font-variant-ligatures: var(--lopr-font-ligatures, normal); background: var(--vscode-editor-background); padding: 4px; margin: 4px 0; }
@@ -214,6 +238,21 @@ export function webviewHtml(font?: WebviewFontOptions): string {
     }
   }
 
+  // render() rebuilds the diff DOM from scratch, which resets scrollTop to 0. Remember
+  // the offset per (view mode, file, pane) so commenting on a line does not jump the
+  // diff back to the top, while switching file still starts at the top.
+  const scrollMemo = new Map();
+
+  function trackScroll(el, pane) {
+    const key = state.viewMode + '|' + state.selectedFile + '|' + pane;
+    const saved = scrollMemo.get(key);
+    if (saved) {
+      el.scrollTop = saved.top;
+      el.scrollLeft = saved.left;
+    }
+    el.onscroll = () => scrollMemo.set(key, { top: el.scrollTop, left: el.scrollLeft });
+  }
+
   function selectLine(newLine) {
     if (state.selectedLine === newLine) return;
     state.selectedLine = newLine;
@@ -253,6 +292,7 @@ export function webviewHtml(font?: WebviewFontOptions): string {
       }
       root.appendChild(el);
     }
+    trackScroll(root, 'unified');
   }
 
   function renderDiffSideBySide() {
@@ -280,20 +320,23 @@ export function webviewHtml(font?: WebviewFontOptions): string {
         rightPane.appendChild(sideBySideLine(line, 'new'));
       } else if (line.kind === 'removed') {
         leftPane.appendChild(sideBySideLine(line, 'old'));
-        const empty = document.createElement('div');
-        empty.className = 'diff-line';
-        empty.style.height = 'var(--lopr-line-height, 1.5em)';
-        leftPane.appendChild(empty);
+        rightPane.appendChild(spacerLine());
       } else {
-        const empty = document.createElement('div');
-        empty.className = 'diff-line';
-        empty.style.height = 'var(--lopr-line-height, 1.5em)';
-        rightPane.appendChild(empty);
+        leftPane.appendChild(spacerLine());
         rightPane.appendChild(sideBySideLine(line, 'new'));
       }
     }
     root.appendChild(leftPane);
     root.appendChild(rightPane);
+    trackScroll(leftPane, 'old');
+    trackScroll(rightPane, 'new');
+  }
+
+  function spacerLine() {
+    const empty = document.createElement('div');
+    empty.className = 'diff-line spacer';
+    empty.textContent = ' ';
+    return empty;
   }
 
   function sideBySideLine(line, side) {
