@@ -149,7 +149,9 @@ function editorFontOptions(): WebviewFontOptions {
   return {
     fontFamily: config.get<string>('fontFamily') ?? 'monospace',
     fontSize: config.get<number>('fontSize') ?? 14,
-    lineHeight: config.get<number | null>('lineHeight', null) ?? undefined,
+    // `editor.lineHeight` defaults to 0 ("compute from the font size"), so it is passed
+    // raw and resolved by resolveLineHeight rather than used as a pixel value.
+    lineHeight: config.get<number>('lineHeight') ?? 0,
     fontLigatures: config.get<boolean | string>('fontLigatures', false) !== false,
   };
 }
